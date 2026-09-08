@@ -6,7 +6,20 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>급식 피드백 프로젝트</h1>
+  <div class="container">
+    <h1>오늘의 급식</h1>
+
+    <!-- 날짜 선택 UI -->
+    <div class="date-selector">
+      <button id="prevBtn">◁</button>
+      <span id="dateLabel"></span>
+      <button id="nextBtn">▷</button>
+    </div>
+
+    <!-- 급식 메뉴 카드가 여기에 JS로 채워짐 -->
+    <div id="menuList"></div>
+  </div>
+
   <script src="main.js"></script>
 </body>
 </html>
