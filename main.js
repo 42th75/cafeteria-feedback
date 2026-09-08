@@ -1,65 +1,85 @@
-// 임시 급식 데이터 (나중에 6차시에서 Supabase 데이터로 교체할 부분)
-const mealData = [
-  {
-    date: "2024년 6월 15일 (토)",
-    menus: [
-      { name: "제육볶음", carbs: 110, protein: 30, fat: 25, kcal: 750 },
-      { name: "된장찌개", carbs: 30,  protein: 12, fat: 8,  kcal: 250 },
-      { name: "계란말이", carbs: 10,  protein: 14, fat: 16, kcal: 220 },
-      { name: "김치",     carbs: 8,   protein: 2,  fat: 0,  kcal: 30  },
-      { name: "우유",     carbs: 12,  protein: 6,  fat: 5,  kcal: 125 },
-    ],
-  },
-  {
-    date: "2024년 6월 16일 (일)",
-    menus: [
-      { name: "치킨마요덮밥", carbs: 120, protein: 35, fat: 28, kcal: 800 },
-      { name: "미역국",       carbs: 15,  protein: 8,  fat: 3,  kcal: 90  },
-      { name: "떡볶이",       carbs: 90,  protein: 8,  fat: 10, kcal: 400 },
-      { name: "깍두기",       carbs: 8,   protein: 1,  fat: 0,  kcal: 25  },
-      { name: "요구르트",     carbs: 15,  protein: 3,  fat: 2,  kcal: 80  },
-    ],
-  },
-];
+// ===== 1. 임시 데이터 (나중에 Supabase DB로 교체할 부분) =====
+const mealData = {
+  "2026-09-07": [
+    { name: "돈가스", carb: 120, protein: 28, fat: 22, kcal: 820 },
+    { name: "미소된장국", carb: 15, protein: 6, fat: 4, kcal: 110 },
+    { name: "깍두기", carb: 8, protein: 1, fat: 0, kcal: 35 }
+  ],
+  "2026-09-08": [
+    { name: "제육볶음", carb: 110, protein: 30, fat: 25, kcal: 750 },
+    { name: "된장찌개", carb: 20, protein: 10, fat: 6, kcal: 160 },
+    { name: "계란말이", carb: 5, protein: 14, fat: 12, kcal: 180 },
+    { name: "김치", carb: 6, protein: 1, fat: 0, kcal: 25 }
+  ],
+  "2026-09-09": [
+    { name: "치킨마요덮밥", carb: 140, protein: 26, fat: 20, kcal: 880 },
+    { name: "유부장국", carb: 12, protein: 5, fat: 3, kcal: 90 },
+    { name: "단무지", carb: 4, protein: 0, fat: 0, kcal: 15 }
+  ]
+};
 
-let currentIndex = 0; // 지금 몇 번째 날짜를 보고 있는지
+// ===== 2. 현재 보고 있는 날짜 =====
+let currentDate = "2026-09-08";
 
-// HTML에서 필요한 부분들을 이름표(id)로 찾아오기
-const dateLabel = document.getElementById("dateLabel");
+// ===== 3. 화면 요소 붙잡기 =====
+const dateText = document.getElementById("dateText");
 const menuList = document.getElementById("menuList");
+const prevBtn = document.getElementById("prevBtn");
+const nextBtn = document.getElementById("nextBtn");
 
-// 화면을 그리는 함수
-function render() {
-  const today = mealData[currentIndex];
-  dateLabel.textContent = today.date; // 날짜 표시
-
-  menuList.innerHTML = ""; // 이전에 그린 카드 비우기
-
-  // 메뉴 하나하나를 카드로 만들어 붙이기
-  today.menus.forEach((menu) => {
-    const card = document.createElement("div");
-    card.className = "menu-card";
-    card.innerHTML = `
-      <div class="menu-name">${menu.name}</div>
-      <div class="menu-info">
-        탄수화물 ${menu.carbs}g · 단백질 ${menu.protein}g · 지방 ${menu.fat}g · ${menu.kcal} kcal
-      </div>
-      <div class="stars">☆☆☆☆☆</div>
-    `;
-    menuList.appendChild(card);
-  });
+// ===== 4. 날짜를 보기 좋은 글자로 바꾸기 =====
+function formatDate(key) {
+  const [y, m, d] = key.split("-").map(Number);
+  const days = ["일", "월", "화", "수", "목", "금", "토"];
+  const date = new Date(y, m - 1, d);
+  return `${y}년 ${m}월 ${d}일 (${days[date.getDay()]})`;
 }
 
-// ◁ 버튼: 이전 날짜로
-document.getElementById("prevBtn").addEventListener("click", () => {
-  if (currentIndex > 0) currentIndex--;
-  render();
-});
+// ===== 5. 날짜를 "2026-09-08" 형식으로 되돌리기 =====
+function toKey(date) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
 
-// ▷ 버튼: 다음 날짜로
-document.getElementById("nextBtn").addEventListener("click", () => {
-  if (currentIndex < mealData.length - 1) currentIndex++;
-  render();
-});
+// ===== 6. 화면 그리기 =====
+function render() {
+  dateText.textContent = formatDate(currentDate);
 
-render(); // 페이지가 열릴 때 처음 한 번 그리기
+  const menus = mealData[currentDate];
+
+  if (!menus) {
+    menuList.innerHTML = `<p class="empty">이 날짜의 급식 정보가 없습니다.</p>`;
+    return;
+  }
+
+  let html = "";
+  for (const menu of menus) {
+    html += `
+      <div class="menu-card">
+        <div class="menu-name">${menu.name}</div>
+        <div class="menu-info">
+          탄수화물 ${menu.carb}g · 단백질 ${menu.protein}g · 지방 ${menu.fat}g<br>
+          ${menu.kcal} kcal
+        </div>
+      </div>
+    `;
+  }
+  menuList.innerHTML = html;
+}
+
+// ===== 7. 날짜 이동 버튼 =====
+function moveDate(diff) {
+  const [y, m, d] = currentDate.split("-").map(Number);
+  const date = new Date(y, m - 1, d);
+  date.setDate(date.getDate() + diff);
+  currentDate = toKey(date);
+  render();
+}
+
+prevBtn.addEventListener("click", () => moveDate(-1));
+nextBtn.addEventListener("click", () => moveDate(1));
+
+// ===== 8. 페이지 열리자마자 한 번 그리기 =====
+render();

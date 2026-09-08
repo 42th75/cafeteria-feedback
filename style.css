@@ -1,66 +1,70 @@
 body {
   font-family: "맑은 고딕", sans-serif;
-  background: #f0f7f2;
+  background: #eaf6ef;
   margin: 0;
   padding: 20px;
 }
 
-.container {
-  max-width: 420px;
+.phone {
+  max-width: 400px;
   margin: 0 auto;
   background: #ffffff;
-  border-radius: 16px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 2px solid #2e7d52;
+  border-radius: 12px;
+  padding: 16px;
 }
 
-h1 {
+.title {
   text-align: center;
-  color: #2e7d5b;
+  font-size: 20px;
+  margin: 4px 0 12px;
 }
 
-.date-selector {
+/* 날짜 선택 바 */
+.date-bar {
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: 16px;
-  margin-bottom: 20px;
+  gap: 12px;
+  background: #d6f0e0;
+  border-radius: 8px;
+  padding: 8px;
+  margin-bottom: 14px;
 }
 
-.date-selector button {
+.date-bar button {
+  background: #2e7d52;
+  color: white;
   border: none;
-  background: #e0f0e8;
-  color: #2e7d5b;
-  font-size: 18px;
-  border-radius: 8px;
-  padding: 4px 12px;
+  border-radius: 6px;
+  width: 28px;
+  height: 28px;
   cursor: pointer;
 }
 
-.date-selector span {
-  font-weight: bold;
-}
-
+/* 메뉴 카드 */
 .menu-card {
-  border: 1px solid #d5e8dd;
-  border-radius: 12px;
-  padding: 14px;
-  margin-bottom: 12px;
+  background: #f4fbf7;
+  border: 1px solid #a8d5bd;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
 }
 
 .menu-name {
-  font-size: 18px;
   font-weight: bold;
-  color: #333;
+  font-size: 17px;
+  margin-bottom: 6px;
 }
 
 .menu-info {
   font-size: 13px;
-  color: #666;
-  margin: 6px 0;
+  color: #555;
+  line-height: 1.5;
 }
 
-.stars {
-  color: #f5b301;
-  font-size: 20px;
+.empty {
+  text-align: center;
+  color: #888;
+  padding: 30px 0;
 }

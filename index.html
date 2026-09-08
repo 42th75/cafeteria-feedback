@@ -2,21 +2,22 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <title>급식 피드백</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>오늘의 급식</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div class="container">
-    <h1>오늘의 급식</h1>
+  <div class="phone">
+    <h1 class="title">오늘의 급식</h1>
 
-    <!-- 날짜 선택 UI -->
-    <div class="date-selector">
-      <button id="prevBtn">◁</button>
-      <span id="dateLabel"></span>
-      <button id="nextBtn">▷</button>
+    <!-- 날짜 선택 바 -->
+    <div class="date-bar">
+      <button id="prevBtn">&lt;</button>
+      <span id="dateText">날짜</span>
+      <button id="nextBtn">&gt;</button>
     </div>
 
-    <!-- 급식 메뉴 카드가 여기에 JS로 채워짐 -->
+    <!-- 메뉴 카드가 들어갈 자리 (JS가 채웁니다) -->
     <div id="menuList"></div>
   </div>
 
