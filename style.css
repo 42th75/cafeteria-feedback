@@ -68,3 +68,81 @@ body {
   color: #888;
   padding: 30px 0;
 }
+
+/* ===== 3차시: 별점·후기 ===== */
+.menu-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.menu-avg {
+  font-size: 13px;
+  color: #e6a100;
+  font-weight: bold;
+}
+
+.feedback {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px dashed #a8d5bd;
+}
+
+.stars {
+  margin-bottom: 6px;
+}
+
+.star {
+  background: none;
+  border: none;
+  font-size: 22px;
+  color: #cccccc;
+  cursor: pointer;
+  padding: 0 2px;
+}
+
+.star.on {
+  color: #ffb800;
+}
+
+.review-input {
+  display: flex;
+  gap: 6px;
+}
+
+.review-input input {
+  flex: 1;
+  padding: 6px 8px;
+  border: 1px solid #a8d5bd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.submit-btn {
+  background: #3b82f6;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.review-list {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: #444;
+}
+
+.review-list li {
+  background: white;
+  border-radius: 6px;
+  padding: 5px 8px;
+  margin-top: 4px;
+}
+
+.review-list .mini-star {
+  color: #ffb800;
+  margin-right: 4px;
+}
