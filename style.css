@@ -146,3 +146,144 @@ body {
   color: #ffb800;
   margin-right: 4px;
 }
+
+/* ===== 4차시: 탭 ===== */
+.tab-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 12px;
+}
+
+.tab {
+  flex: 1;
+  padding: 8px;
+  border: 1px solid #2e7d52;
+  background: white;
+  color: #2e7d52;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+}
+
+.tab.active {
+  background: #2e7d52;
+  color: white;
+}
+
+.hidden {
+  display: none;
+}
+
+/* ===== 4차시: 랭킹 ===== */
+.rank-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.rank-box {
+  background: #f4fbf7;
+  border: 1px solid #a8d5bd;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+.rank-box h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.rank-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+}
+
+.rank-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 0;
+}
+
+.rank-num {
+  background: #ffe9a8;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  font-size: 11px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.rank-score {
+  margin-left: auto;
+  color: #e6a100;
+  font-weight: bold;
+}
+
+/* ===== 4차시: 행사 게시판 ===== */
+.event-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.event-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.event-card {
+  background: #f4fbf7;
+  border: 1px solid #a8d5bd;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+
+.event-title {
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.event-meta {
+  font-size: 12px;
+  color: #777;
+  margin: 4px 0 8px;
+}
+
+.event-content {
+  font-size: 13px;
+  line-height: 1.5;
+  background: white;
+  border-radius: 6px;
+  padding: 8px;
+  margin: 0 0 8px;
+}
+
+.event-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.detail-btn,
+.like-btn {
+  border: 1px solid #a8d5bd;
+  background: white;
+  border-radius: 6px;
+  padding: 5px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.like-btn.liked {
+  background: #ffe1e6;
+  border-color: #ff8fa3;
+  color: #e0244a;
+}

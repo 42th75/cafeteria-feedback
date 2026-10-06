@@ -3,24 +3,55 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>오늘의 급식</title>
+  <title>급식 피드백</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div class="phone">
-    <h1 class="title">오늘의 급식</h1>
 
-    <!-- 날짜 선택 바 -->
-    <div class="date-bar">
-      <button id="prevBtn">&lt;</button>
-      <span id="dateText">날짜</span>
-      <button id="nextBtn">&gt;</button>
+    <!-- 탭 메뉴 -->
+    <div class="tab-bar">
+      <button class="tab active" data-tab="mealTab">오늘의 급식</button>
+      <button class="tab" data-tab="rankTab">선호도 · 행사</button>
     </div>
 
-    <!-- 메뉴 카드가 들어갈 자리 (JS가 채웁니다) -->
-    <div id="menuList"></div>
-  </div>
+    <!-- 화면 1: 오늘의 급식 (2~3차시) -->
+    <section id="mealTab" class="tab-page">
+      <h1 class="title">오늘의 급식</h1>
+      <div class="date-bar">
+        <button id="prevBtn">&lt;</button>
+        <span id="dateText">날짜</span>
+        <button id="nextBtn">&gt;</button>
+      </div>
+      <div id="menuList"></div>
+    </section>
 
+    <!-- 화면 2: 선호도 랭킹 + 행사 게시판 (4차시) -->
+    <section id="rankTab" class="tab-page hidden">
+      <h1 class="title">메뉴 선호도 및 행사 정보</h1>
+
+      <div class="rank-wrap">
+        <div class="rank-box">
+          <h3>🏆 TOP 5 인기 급식</h3>
+          <ol id="topList" class="rank-list"></ol>
+        </div>
+        <div class="rank-box">
+          <h3>👎 비선호 메뉴</h3>
+          <ol id="bottomList" class="rank-list"></ol>
+        </div>
+      </div>
+
+      <div class="event-head">
+        <h3>📢 급식 행사</h3>
+        <select id="sortSelect">
+          <option value="latest">최신순</option>
+          <option value="popular">인기순</option>
+        </select>
+      </div>
+      <div id="eventList"></div>
+    </section>
+
+  </div>
   <script src="main.js"></script>
 </body>
 </html>
