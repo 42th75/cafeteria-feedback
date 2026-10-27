@@ -1,3 +1,4 @@
+/* ===== 기본 (2차시) ===== */
 body {
   font-family: "맑은 고딕", sans-serif;
   background: #eaf6ef;
@@ -20,7 +21,6 @@ body {
   margin: 4px 0 12px;
 }
 
-/* 날짜 선택 바 */
 .date-bar {
   display: flex;
   justify-content: center;
@@ -42,7 +42,6 @@ body {
   cursor: pointer;
 }
 
-/* 메뉴 카드 */
 .menu-card {
   background: #f4fbf7;
   border: 1px solid #a8d5bd;
@@ -69,7 +68,7 @@ body {
   padding: 30px 0;
 }
 
-/* ===== 3차시: 별점·후기 ===== */
+/* ===== 별점·후기 (3차시) ===== */
 .menu-head {
   display: flex;
   justify-content: space-between;
@@ -147,7 +146,7 @@ body {
   margin-right: 4px;
 }
 
-/* ===== 4차시: 탭 ===== */
+/* ===== 탭 (4차시) ===== */
 .tab-bar {
   display: flex;
   gap: 6px;
@@ -163,6 +162,7 @@ body {
   border-radius: 8px;
   cursor: pointer;
   font-weight: bold;
+  font-size: 13px;
 }
 
 .tab.active {
@@ -174,7 +174,7 @@ body {
   display: none;
 }
 
-/* ===== 4차시: 랭킹 ===== */
+/* ===== 랭킹 (4차시) ===== */
 .rank-wrap {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -226,7 +226,7 @@ body {
   font-weight: bold;
 }
 
-/* ===== 4차시: 행사 게시판 ===== */
+/* ===== 행사 게시판 (4차시) ===== */
 .event-head {
   display: flex;
   justify-content: space-between;
@@ -286,4 +286,83 @@ body {
   background: #ffe1e6;
   border-color: #ff8fa3;
   color: #e0244a;
+}
+
+/* ===== 영양사 대시보드 (5차시) ===== */
+.report-wrap {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.report-box {
+  background: #f4fbf7;
+  border: 1px solid #a8d5bd;
+  border-radius: 10px;
+  padding: 10px;
+  text-align: center;
+}
+
+.report-label {
+  font-size: 12px;
+  color: #666;
+}
+
+.report-value {
+  font-size: 15px;
+  font-weight: bold;
+  margin-top: 4px;
+}
+
+.admin-box {
+  background: #f4fbf7;
+  border: 1px solid #a8d5bd;
+  border-radius: 10px;
+  padding: 12px;
+  margin-bottom: 12px;
+}
+
+.admin-box h3 {
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.chart-wrap {
+  position: relative;
+  height: 300px;
+}
+
+.event-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  background: white;
+}
+
+.event-table th,
+.event-table td {
+  border-bottom: 1px solid #d6f0e0;
+  padding: 6px;
+  text-align: left;
+}
+
+.event-table th {
+  background: #d6f0e0;
+}
+
+.admin-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 8px;
+  margin-bottom: 6px;
+  border: 1px solid #a8d5bd;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: inherit;
+}
+
+.submit-btn.full {
+  width: 100%;
+  padding: 9px;
 }

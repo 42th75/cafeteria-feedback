@@ -64,12 +64,10 @@ function toKey(date) {
 }
 
 // ===== 6. 리뷰 계산 도우미 함수 (Process) =====
-// 특정 날짜·메뉴의 리뷰만 골라내기
 function getReviews(date, menuName) {
   return reviews.filter(r => r.date === date && r.menu === menuName);
 }
 
-// 평균 별점 구하기
 function getAverage(list) {
   if (list.length === 0) return 0;
   let sum = 0;
@@ -87,7 +85,7 @@ function escapeHTML(text) {
     .replace(/>/g, "&gt;");
 }
 
-// ===== 7. 화면 그리기 (Output) =====
+// ===== 7. 오늘의 급식 화면 그리기 (Output) =====
 function render() {
   dateText.textContent = formatDate(currentDate);
 
@@ -104,14 +102,12 @@ function render() {
     const avg = getAverage(menuReviews);
     const picked = selectedScore[menu.name] || 0;
 
-    // 별 버튼 5개 만들기
     let starButtons = "";
     for (let i = 1; i <= 5; i++) {
       const on = i <= picked ? "on" : "";
       starButtons += `<button class="star ${on}" data-menu="${menu.name}" data-score="${i}">★</button>`;
     }
 
-    // 후기 목록 만들기
     let reviewItems = "";
     for (const r of menuReviews) {
       reviewItems += `
@@ -151,29 +147,26 @@ function moveDate(diff) {
   const date = new Date(y, m - 1, d);
   date.setDate(date.getDate() + diff);
   currentDate = toKey(date);
-  selectedScore = {}; // 날짜가 바뀌면 고르던 별점 초기화
+  selectedScore = {};
   render();
 }
 
 prevBtn.addEventListener("click", () => moveDate(-1));
 nextBtn.addEventListener("click", () => moveDate(1));
 
-// ===== 9. 별점 클릭 & 등록 버튼 처리 (Input) =====
+// ===== 9. 별점 클릭 & 후기 등록 (Input) =====
 menuList.addEventListener("click", (e) => {
-  // (1) 별을 눌렀을 때
   const star = e.target.closest(".star");
   if (star) {
     const name = star.dataset.menu;
     const score = Number(star.dataset.score);
     selectedScore[name] = score;
 
-    // 이 카드의 별 5개 색만 바꾸기 (입력 중인 글이 지워지지 않도록 render는 안 부름)
     const buttons = star.parentElement.querySelectorAll(".star");
     buttons.forEach((b, idx) => b.classList.toggle("on", idx < score));
     return;
   }
 
-  // (2) 등록 버튼을 눌렀을 때
   const submit = e.target.closest(".submit-btn");
   if (submit) {
     const name = submit.dataset.menu;
@@ -240,7 +233,6 @@ const sortSelect = document.getElementById("sortSelect");
 
 // ===== 12. 메뉴 선호도 랭킹 계산 (Process) =====
 function getMenuStats() {
-  // (1) 메뉴 이름별로 점수 합계와 개수 모으기
   const stats = {};
   for (const r of reviews) {
     if (!stats[r.menu]) {
@@ -250,13 +242,11 @@ function getMenuStats() {
     stats[r.menu].count += 1;
   }
 
-  // (2) 평균 계산
   const list = Object.values(stats);
   for (const s of list) {
     s.avg = s.sum / s.count;
   }
 
-  // (3) 평균 높은 순 정렬, 평균이 같으면 후기 많은 순
   list.sort((a, b) => b.avg - a.avg || b.count - a.count);
   return list;
 }
@@ -273,8 +263,8 @@ function rankItem(rank, s) {
 
 function renderRanking() {
   const list = getMenuStats();
-  const top = list.slice(0, 5);                        // 앞에서 5개
-  const bottom = list.slice(5).reverse().slice(0, 3);  // TOP5 제외한 나머지 중 꼴찌부터 3개
+  const top = list.slice(0, 5);
+  const bottom = list.slice(5).reverse().slice(0, 3);
 
   let topHTML = "";
   for (let i = 0; i < top.length; i++) {
@@ -292,7 +282,7 @@ function renderRanking() {
 
 // ===== 13. 행사 게시판 그리기 (Output) =====
 function renderEvents() {
-  const sorted = [...events]; // 원본 순서는 건드리지 않도록 복사본 정렬
+  const sorted = [...events];
 
   if (sortSelect.value === "latest") {
     sorted.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
@@ -331,19 +321,19 @@ eventList.addEventListener("click", (e) => {
 
   if (detail) {
     if (openIds.includes(id)) {
-      openIds = openIds.filter(x => x !== id);  // 접기
+      openIds = openIds.filter(x => x !== id);
     } else {
-      openIds.push(id);                          // 펼치기
-      ev.views += 1;                             // 조회수 증가
+      openIds.push(id);
+      ev.views += 1;
     }
   }
 
   if (like) {
     if (likedIds.includes(id)) {
-      likedIds = likedIds.filter(x => x !== id); // 좋아요 취소
+      likedIds = likedIds.filter(x => x !== id);
       ev.likes -= 1;
     } else {
-      likedIds.push(id);                         // 좋아요
+      likedIds.push(id);
       ev.likes += 1;
     }
   }
@@ -353,7 +343,100 @@ eventList.addEventListener("click", (e) => {
 
 sortSelect.addEventListener("change", renderEvents);
 
-// ===== 15. 탭 전환 =====
+// ===== 15. 영양사 대시보드 (Output) =====
+const bestMenu = document.getElementById("bestMenu");
+const worstMenu = document.getElementById("worstMenu");
+const eventStats = document.getElementById("eventStats");
+let menuChart = null; // 그래프를 기억해 두는 변수
+
+function renderDashboard() {
+  const list = getMenuStats(); // 4차시 집계 함수 재사용
+
+  // (1) 최고/최저 메뉴
+  if (list.length > 0) {
+    const best = list[0];
+    const worst = list[list.length - 1];
+    bestMenu.textContent = `${best.name} ★${best.avg.toFixed(1)}`;
+    worstMenu.textContent = `${worst.name} ★${worst.avg.toFixed(1)}`;
+  }
+
+  // (2) 그래프 데이터 만들기
+  const labels = [];
+  const scores = [];
+  for (const s of list) {
+    labels.push(s.name);
+    scores.push(Number(s.avg.toFixed(1)));
+  }
+
+  // 이전 그래프가 있으면 지우고 새로 그리기
+  if (menuChart) {
+    menuChart.destroy();
+  }
+
+  menuChart = new Chart(document.getElementById("menuChart"), {
+    type: "bar",
+    data: {
+      labels: labels,
+      datasets: [{
+        label: "평균 별점",
+        data: scores,
+        backgroundColor: "#4caf7d"
+      }]
+    },
+    options: {
+      indexAxis: "y",
+      maintainAspectRatio: false,
+      scales: {
+        x: { min: 0, max: 5 }
+      },
+      plugins: {
+        legend: { display: false }
+      }
+    }
+  });
+
+  // (3) 행사 반응 표
+  let rows = "";
+  for (const ev of events) {
+    rows += `<tr><td>${ev.title}</td><td>${ev.views}</td><td>${ev.likes}</td></tr>`;
+  }
+  eventStats.innerHTML = rows;
+}
+
+// ===== 16. 행사 등록 (Input) =====
+const evTitle = document.getElementById("evTitle");
+const evPeriod = document.getElementById("evPeriod");
+const evContent = document.getElementById("evContent");
+
+document.getElementById("evSubmit").addEventListener("click", () => {
+  const title = evTitle.value.trim();
+  const period = evPeriod.value.trim();
+  const content = evContent.value.trim();
+
+  if (title === "" || content === "") {
+    alert("제목과 내용을 입력해주세요.");
+    return;
+  }
+
+  events.push({
+    id: Date.now(),
+    title: escapeHTML(title),
+    content: escapeHTML(content),
+    period: escapeHTML(period || "상시"),
+    createdAt: toKey(new Date()),
+    likes: 0,
+    views: 0
+  });
+
+  evTitle.value = "";
+  evPeriod.value = "";
+  evContent.value = "";
+
+  renderDashboard();
+  alert("행사가 등록되었습니다.");
+});
+
+// ===== 17. 탭 전환 =====
 const tabs = document.querySelectorAll(".tab");
 const pages = document.querySelectorAll(".tab-page");
 
@@ -365,10 +448,12 @@ for (const tab of tabs) {
     tab.classList.add("active");
     document.getElementById(tab.dataset.tab).classList.remove("hidden");
 
-    // 선호도 탭을 열 때마다 최신 후기로 랭킹 다시 계산
     if (tab.dataset.tab === "rankTab") {
       renderRanking();
       renderEvents();
+    }
+    if (tab.dataset.tab === "adminTab") {
+      renderDashboard();
     }
   });
 }
