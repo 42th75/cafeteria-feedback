@@ -19,6 +19,8 @@
     <!-- 화면 1: 오늘의 급식 (2~3차시) -->
     <section id="mealTab" class="tab-page">
       <h1 class="title">오늘의 급식</h1>
+      <!-- 행사 홍보 배너 (3단계): 가장 최근 행사, 누르면 행사 게시판으로 이동 -->
+      <button id="eventBanner" class="event-banner hidden" type="button"></button>
       <div class="date-bar">
         <button id="prevBtn">&lt;</button>
         <span id="dateText">날짜</span>
@@ -56,32 +58,65 @@
     <section id="adminTab" class="tab-page hidden">
       <h1 class="title">영양사 통계 & 행사 관리</h1>
 
+      <!-- 주간 리포트 (2단계: 최근 7일 기준) -->
+      <div class="week-head">
+        <h3>📅 주간 리포트</h3>
+        <span id="weekRange" class="week-range"></span>
+      </div>
       <div class="report-wrap">
         <div class="report-box">
-          <div class="report-label">👍 최고 선호 메뉴</div>
+          <div class="report-label">👍 주간 최고 메뉴</div>
           <div id="bestMenu" class="report-value">-</div>
         </div>
         <div class="report-box">
-          <div class="report-label">👎 최저 선호 메뉴</div>
+          <div class="report-label">👎 주간 최저 메뉴</div>
           <div id="worstMenu" class="report-value">-</div>
         </div>
       </div>
 
       <div class="admin-box">
-        <h3>📊 메뉴별 평균 별점</h3>
+        <h3>📊 메뉴별 평균 별점 (전체 기간)</h3>
         <div class="chart-wrap">
           <canvas id="menuChart"></canvas>
         </div>
+      </div>
+
+      <!-- 별점 분포 (2단계) -->
+      <div class="admin-box">
+        <h3>⭐ 메뉴별 별점 분포 (1~5점 개수)</h3>
+        <div class="chart-wrap">
+          <canvas id="distChart"></canvas>
+        </div>
+      </div>
+
+      <!-- 최근 학생 후기 (2단계) -->
+      <div class="admin-box">
+        <h3>💬 최근 학생 후기 (최신 10개)</h3>
+        <ul id="recentReviews" class="recent-list"></ul>
       </div>
 
       <div class="admin-box">
         <h3>📢 행사 반응</h3>
         <table class="event-table">
           <thead>
-            <tr><th>행사</th><th>조회</th><th>좋아요</th></tr>
+            <tr><th>행사</th><th>조회</th><th>좋아요</th><th>댓글</th></tr>
           </thead>
           <tbody id="eventStats"></tbody>
         </table>
+      </div>
+
+      <!-- 급식 메뉴 등록 (2단계) -->
+      <div class="admin-box">
+        <h3>🍱 급식 메뉴 등록</h3>
+        <input id="mDate" class="admin-input" type="date">
+        <input id="mName" class="admin-input" type="text" placeholder="메뉴명" maxlength="30">
+        <div class="nutri-grid">
+          <input id="mCarb" class="admin-input" type="number" min="0" step="0.1" placeholder="탄수화물(g)">
+          <input id="mProtein" class="admin-input" type="number" min="0" step="0.1" placeholder="단백질(g)">
+          <input id="mFat" class="admin-input" type="number" min="0" step="0.1" placeholder="지방(g)">
+          <input id="mKcal" class="admin-input" type="number" min="0" step="1" placeholder="열량(kcal)">
+        </div>
+        <button id="mSubmit" class="submit-btn full">메뉴 등록하기</button>
       </div>
 
       <div class="admin-box">
@@ -89,6 +124,9 @@
         <input id="evTitle" class="admin-input" type="text" placeholder="제목" maxlength="30">
         <input id="evPeriod" class="admin-input" type="text" placeholder="기간 (예: ~ 11월 15일)" maxlength="20">
         <textarea id="evContent" class="admin-input" rows="3" placeholder="내용" maxlength="1000"></textarea>
+        <!-- 이미지 첨부 (3단계, 선택 사항): png/jpg/gif/webp, 2MB 이하 -->
+        <label class="file-label" for="evImage">이미지 첨부 (선택, 2MB 이하)</label>
+        <input id="evImage" class="admin-input" type="file" accept="image/png, image/jpeg, image/gif, image/webp">
         <button id="evSubmit" class="submit-btn full">공지 등록하기</button>
       </div>
     </section>
@@ -96,7 +134,7 @@
   </div>
 
   <!-- Chart.js와 supabase-js는 반드시 main.js보다 먼저 -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="main.js"></script>
 </body>
