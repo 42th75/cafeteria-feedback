@@ -366,3 +366,143 @@ body {
   width: 100%;
   padding: 9px;
 }
+
+.submit-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+/* ===== 영양사 탭 추가 기능 (2단계) ===== */
+.week-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+
+.week-head h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.week-range {
+  font-size: 12px;
+  color: #666;
+}
+
+.recent-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  font-size: 13px;
+  color: #444;
+}
+
+.recent-list li {
+  background: white;
+  border-radius: 6px;
+  padding: 6px 8px;
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.recent-meta {
+  font-size: 12px;
+  color: #777;
+}
+
+.recent-list .mini-star {
+  color: #ffb800;
+  margin: 0 4px;
+}
+
+/* 영양 정보 입력칸 4개를 2칸씩 두 줄로 */
+.nutri-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  column-gap: 6px;
+}
+/* ===== 행사 배너·댓글·이미지 (3단계) ===== */
+.event-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  background: #fff6db;
+  border: 1px solid #ffd36b;
+  border-radius: 10px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  cursor: pointer;
+  font-family: inherit;
+}
+
+.event-banner.hidden {
+  display: none;
+}
+
+.banner-img {
+  width: 56px;
+  height: 56px;
+  object-fit: cover;
+  border-radius: 8px;
+  flex-shrink: 0;
+}
+
+.banner-label {
+  font-size: 11px;
+  color: #b07a00;
+  font-weight: bold;
+}
+
+.banner-title {
+  font-size: 15px;
+  font-weight: bold;
+  margin: 2px 0;
+}
+
+.banner-period {
+  font-size: 12px;
+  color: #777;
+}
+
+.event-img {
+  display: block;
+  width: 100%;
+  max-height: 220px;
+  object-fit: cover;
+  border-radius: 8px;
+  margin-bottom: 8px;
+}
+
+.comment-list {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 6px;
+  font-size: 13px;
+  color: #444;
+}
+
+.comment-list li {
+  background: white;
+  border-left: 3px solid #a8d5bd;
+  border-radius: 4px;
+  padding: 5px 8px;
+  margin-bottom: 4px;
+}
+
+.comment-list .no-comment {
+  color: #999;
+}
+
+.comment-input {
+  margin-bottom: 8px;
+}
+
+.file-label {
+  display: block;
+  font-size: 12px;
+  color: #666;
+  margin-bottom: 4px;
+}
