@@ -88,15 +88,16 @@
         <h3>✏️ 행사 등록</h3>
         <input id="evTitle" class="admin-input" type="text" placeholder="제목" maxlength="30">
         <input id="evPeriod" class="admin-input" type="text" placeholder="기간 (예: ~ 11월 15일)" maxlength="20">
-        <textarea id="evContent" class="admin-input" rows="3" placeholder="내용"></textarea>
+        <textarea id="evContent" class="admin-input" rows="3" placeholder="내용" maxlength="1000"></textarea>
         <button id="evSubmit" class="submit-btn full">공지 등록하기</button>
       </div>
     </section>
 
   </div>
 
-  <!-- Chart.js는 반드시 main.js보다 먼저 -->
+  <!-- Chart.js와 supabase-js는 반드시 main.js보다 먼저 -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"></script>
   <script src="main.js"></script>
 </body>
 </html>
