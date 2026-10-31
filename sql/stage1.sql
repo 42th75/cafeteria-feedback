@@ -2,9 +2,10 @@
 -- 1단계: JS 배열 데이터를 Supabase(PostgreSQL)로 옮기기
 -- ---------------------------------------------------------------------
 -- 실행 방법: Supabase 대시보드 → SQL Editor → 이 파일 전체 붙여넣기 → Run
--- 주의: "처음 한 번만" 실행하는 파일입니다.
---       두 번 실행하면 후기·행사 샘플이 중복으로 들어갑니다.
---       다시 처음부터 만들고 싶으면 맨 아래 [0. 초기화] 부분의 주석을 풀고 먼저 실행하세요.
+-- 여러 번 실행해도 괜찮습니다. (if not exists / or replace / on conflict 사용)
+--   - 이미 있는 테이블·뷰·정책은 그대로 두거나 새로 덮어씁니다.
+--   - 샘플 데이터는 표가 비어 있을 때만 넣어서 중복으로 들어가지 않습니다.
+--   다시 처음부터 만들고 싶으면 맨 아래 [0. 초기화] 부분의 주석을 풀고 먼저 실행하세요.
 --
 -- 이 파일이 만드는 것
 --   1) 테이블 3개: diet_logs(급식 메뉴), reviews(후기), events(행사)
@@ -26,7 +27,7 @@
 --   mealData["2026-09-07"] = [{name, carb, protein, fat, kcal}, ...]
 --   → 메뉴 하나가 한 줄(row)이 됩니다.
 -- ---------------------------------------------------------------------
-create table diet_logs (
+create table if not exists diet_logs (
   id          bigint generated always as identity primary key, -- 자동으로 1, 2, 3... 번호가 붙음
   date        date    not null,                                -- 급식 날짜 (예: 2026-10-26)
   menu_name   text    not null check (char_length(menu_name) between 1 and 30),
@@ -45,7 +46,7 @@ create table diet_logs (
 --   main.js의 reviews 배열 { date, menu, score, comment } 와 같은 구조입니다.
 --   (JS의 menu → DB에서는 menu_name 으로 이름을 바꿨습니다)
 -- ---------------------------------------------------------------------
-create table reviews (
+create table if not exists reviews (
   id          bigint generated always as identity primary key,
   date        date not null,
   menu_name   text not null,
@@ -65,7 +66,7 @@ create table reviews (
 --   main.js의 events 배열 { id, title, content, period, createdAt, likes, views } 와 같은 구조입니다.
 --   image_url 은 계획서의 "행사 공지 이미지 첨부" 기능을 위해 미리 만들어 둔 칸입니다 (지금은 비워둠).
 -- ---------------------------------------------------------------------
-create table events (
+create table if not exists events (
   id          bigint generated always as identity primary key,
   title       text not null check (char_length(title)   between 1 and 30),  -- 입력칸 maxlength=30
   content     text not null check (char_length(content) between 1 and 1000),
@@ -84,10 +85,10 @@ create table events (
 -- =====================================================================
 
 -- 메뉴 이름으로 묶거나(GROUP BY menu_name), 메뉴+날짜로 찾을 때 빠르게
-create index idx_reviews_menu_date on reviews (menu_name, date);
+create index if not exists idx_reviews_menu_date on reviews (menu_name, date);
 
 -- 날짜로만 찾을 때 빠르게 (예: 그날의 후기 피드, 주간 리포트)
-create index idx_reviews_date on reviews (date);
+create index if not exists idx_reviews_date on reviews (date);
 
 
 -- =====================================================================
@@ -106,7 +107,7 @@ create index idx_reviews_date on reviews (date);
 --   → 선호도 랭킹 TOP5/비선호, 영양사 그래프, 최고/최저 메뉴에 사용
 --   main.js의 getMenuStats() 함수가 하던 계산을 SQL로 옮긴 것입니다.
 -- ---------------------------------------------------------------------
-create view menu_stats
+create or replace view menu_stats
 with (security_invoker = true) as
 select
   menu_name,
@@ -120,7 +121,7 @@ group by menu_name;
 --   → "오늘의 급식" 탭의 메뉴 카드에 표시되는 ★평균 (N명) 에 사용
 --   (지금 main.js는 그날 그 메뉴의 후기만 골라 평균을 내기 때문에 별도로 만듦)
 -- ---------------------------------------------------------------------
-create view menu_date_stats
+create or replace view menu_date_stats
 with (security_invoker = true) as
 select
   date,
@@ -215,22 +216,27 @@ alter table reviews   enable row level security;
 alter table events    enable row level security;
 
 -- 읽기(select) 허용
+drop policy if exists "누구나 급식 메뉴 읽기" on diet_logs;
 create policy "누구나 급식 메뉴 읽기" on diet_logs
   for select to anon, authenticated using (true);
 
+drop policy if exists "누구나 후기 읽기" on reviews;
 create policy "누구나 후기 읽기" on reviews
   for select to anon, authenticated using (true);
 
+drop policy if exists "누구나 행사 읽기" on events;
 create policy "누구나 행사 읽기" on events
   for select to anon, authenticated using (true);
 
 -- 추가(insert) 허용
+drop policy if exists "누구나 후기 추가" on reviews;
 create policy "누구나 후기 추가" on reviews
   for insert to anon, authenticated with check (true);
   -- 별점 1~5, 후기 50자 제한은 테이블의 check 제약조건이 이미 검사함
 
 -- 새 행사는 좋아요·조회수 0으로만 시작 가능 (처음부터 숫자를 부풀려 등록하는 것 방지)
 -- [확인 필요] 지금은 학생도 행사를 등록할 수 있음 → 4단계에서 관리자만 등록하도록 바꿀 예정
+drop policy if exists "누구나 행사 추가" on events;
 create policy "누구나 행사 추가" on events
   for insert to anon, authenticated with check (likes = 0 and views = 0);
 
@@ -269,13 +275,16 @@ insert into diet_logs (date, menu_name, carb, protein, fat, kcal) values
   ('2026-10-30', '김치볶음밥',   125, 15, 18, 700),
   ('2026-10-30', '된장찌개',      20, 10,  6, 160),
   ('2026-10-30', '계란말이',       5, 14, 12, 180),
-  ('2026-10-30', '사과',          15,  0,  0,  60);
+  ('2026-10-30', '사과',          15,  0,  0,  60)
+on conflict (date, menu_name) do nothing;  -- 이미 있는 메뉴는 건너뛰기
 
 -- ---------------------------------------------------------------------
 -- 6-2. 후기 (메뉴별 1~3개)
 --   랭킹이 잘 보이도록 인기 메뉴는 높게, 비선호 메뉴는 낮게 섞었습니다.
 -- ---------------------------------------------------------------------
-insert into reviews (date, menu_name, score, comment) values
+-- 후기 표가 비어 있을 때만 넣기 (where not exists) → 다시 실행해도 중복 없음
+insert into reviews (date, menu_name, score, comment)
+select d::date, m, sc, c from (values
   -- 10/26
   ('2026-10-26', '돈가스',       5, '바삭바삭해요'),
   ('2026-10-26', '돈가스',       5, '소스가 최고'),
@@ -309,7 +318,9 @@ insert into reviews (date, menu_name, score, comment) values
   ('2026-10-30', '김치볶음밥',   4, '계란후라이 있었으면'),
   ('2026-10-30', '된장찌개',     4, '이번엔 건더기 많았어요'),
   ('2026-10-30', '계란말이',     5, '역시 계란말이'),
-  ('2026-10-30', '사과',         3, '조금 퍼석했어요');
+  ('2026-10-30', '사과',         3, '조금 퍼석했어요')
+) as v(d, m, sc, c)
+where not exists (select 1 from reviews);
 
 -- ---------------------------------------------------------------------
 -- 6-3. 행사 3개
@@ -317,7 +328,9 @@ insert into reviews (date, menu_name, score, comment) values
 --   (최신순: 이용 수칙 → 캠페인 → UCC / 인기순: 캠페인 → UCC → 이용 수칙)
 --   샘플은 관리자 권한(SQL Editor)으로 넣는 것이라 likes/views를 0이 아닌 값으로 넣을 수 있습니다.
 -- ---------------------------------------------------------------------
-insert into events (title, content, period, likes, views, created_at) values
+-- 행사 표가 비어 있을 때만 넣기
+insert into events (title, content, period, likes, views, created_at)
+select t, c, p, l, vw, ca::timestamptz from (values
   ('🎬 잔반 제로 UCC 공모전',
    '여러분의 창의적인 UCC로 잔반 없는 세상을 만들어요! 1분 내외 영상을 영양실로 제출하세요.',
    '~ 11월 20일', 12, 45, '2026-10-01 09:00:00+09'),
@@ -326,7 +339,9 @@ insert into events (title, content, period, likes, views, created_at) values
    '매주 수요일', 20, 60, '2026-10-20 09:00:00+09'),
   ('📋 급식실 이용 수칙 안내',
    '급식실에서는 줄을 서서 차례를 지키고, 식사 후 식판은 분리해서 반납해 주세요.',
-   '상시', 3, 30, '2026-10-26 09:00:00+09');
+   '상시', 3, 30, '2026-10-26 09:00:00+09')
+) as v(t, c, p, l, vw, ca)
+where not exists (select 1 from events);
 
 
 -- =====================================================================
