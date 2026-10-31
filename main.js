@@ -947,6 +947,104 @@ evSubmit.addEventListener("click", async () => {
   alert("행사가 등록되었습니다.");
 });
 
+// ===== 13-3. 영양사 로그인 (4단계) =====
+// 비밀번호 확인은 Supabase Auth가 하고, "영양사인지"는 DB의 is_admin() 함수가 알려줍니다.
+// 화면을 숨기는 것만으로는 안전하지 않아서, 메뉴·행사 등록은 stage4.sql의 RLS가 영양사만 허락합니다.
+const LOGIN_DOMAIN = "cafeteria.test"; // 아이디 "nutri" → 이메일 "nutri@cafeteria.test"
+const loginBox = document.getElementById("loginBox");
+const adminContent = document.getElementById("adminContent");
+const loginId = document.getElementById("loginId");
+const loginPw = document.getElementById("loginPw");
+const loginBtn = document.getElementById("loginBtn");
+const loginMsg = document.getElementById("loginMsg");
+const loginUser = document.getElementById("loginUser");
+const logoutBtn = document.getElementById("logoutBtn");
+
+let isAdmin = false;   // 지금 로그인한 사람이 영양사인지
+let adminName = "";    // 화면에 보여줄 아이디
+
+// 아이디에 @가 없으면 학교용 도메인을 붙여 이메일로 바꾸기 (이메일을 그대로 써도 됨)
+function toLoginEmail(id) {
+  return id.includes("@") ? id : `${id}@${LOGIN_DOMAIN}`;
+}
+
+// 지금 로그인 상태를 DB에 물어보기 (화면은 건드리지 않음)
+async function fetchAdminState() {
+  const { data } = await db.auth.getSession();
+  const session = data.session;
+  if (!session) return { admin: false, name: "" };
+
+  const admin = check(await db.rpc("is_admin"));
+  return { admin: admin === true, name: session.user.email.replace(`@${LOGIN_DOMAIN}`, "") };
+}
+
+// 로그인 상자 / 영양사 화면 중 하나만 보여주기
+function renderAdminAccess() {
+  loginBox.classList.toggle("hidden", isAdmin);
+  adminContent.classList.toggle("hidden", !isAdmin);
+  loginUser.textContent = isAdmin ? `👩‍🍳 ${adminName} 영양사님 로그인 중` : "";
+}
+
+// 영양사 탭 열기: 로그인 확인 → 영양사면 대시보드 불러오기
+async function loadAdmin() {
+  loginMsg.textContent = ""; // 지난번 안내 문구 지우기
+  try {
+    const state = await fetchAdminState();
+    isAdmin = state.admin;
+    adminName = state.name;
+  } catch (err) {
+    console.error("로그인 상태 확인 실패:", err);
+    isAdmin = false;
+  }
+  renderAdminAccess();
+  if (isAdmin) {
+    // 메뉴 등록 날짜칸이 비어 있으면 지금 보고 있는 날짜로 채워 두기
+    if (mDate.value === "" && currentDate) mDate.value = currentDate;
+    loadDashboard();
+  }
+}
+
+async function login() {
+  const id = loginId.value.trim();
+  const pw = loginPw.value;
+  if (id === "" || pw === "") {
+    loginMsg.textContent = "아이디와 비밀번호를 입력해주세요.";
+    return;
+  }
+
+  loginBtn.disabled = true;
+  loginMsg.textContent = "";
+  const { error } = await db.auth.signInWithPassword({ email: toLoginEmail(id), password: pw });
+  loginPw.value = ""; // 비밀번호는 화면에 남기지 않기
+  loginBtn.disabled = false;
+
+  if (error) {
+    console.error("로그인 실패:", error.message); // 비밀번호는 기록하지 않음
+    loginMsg.textContent = "아이디 또는 비밀번호가 맞지 않아요.";
+    return;
+  }
+
+  await loadAdmin();
+  if (!isAdmin) {
+    // 로그인은 됐지만 영양사가 아닌 계정 → 바로 로그아웃
+    await db.auth.signOut();
+    loginMsg.textContent = "영양사 계정이 아니에요.";
+  }
+}
+
+loginBtn.addEventListener("click", login);
+loginPw.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") login();
+});
+
+logoutBtn.addEventListener("click", async () => {
+  await db.auth.signOut();
+  isAdmin = false;
+  adminName = "";
+  loginId.value = "";
+  renderAdminAccess();
+});
+
 // ===== 14. 탭 전환 =====
 // 탭을 열 때마다 DB에서 새로 불러와서, 다른 사람이 쓴 후기·좋아요도 반영되게 합니다.
 const tabs = document.querySelectorAll(".tab");
@@ -967,9 +1065,7 @@ function showTab(tabId) {
     return loadEvents();
   }
   if (tabId === "adminTab") {
-    // 메뉴 등록 날짜칸이 비어 있으면 지금 보고 있는 날짜로 채워 두기
-    if (mDate.value === "" && currentDate) mDate.value = currentDate;
-    loadDashboard();
+    loadAdmin(); // 로그인한 영양사만 대시보드를 볼 수 있음
   }
   return Promise.resolve();
 }
