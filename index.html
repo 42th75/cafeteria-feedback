@@ -60,6 +60,23 @@
     <section id="adminTab" class="tab-page hidden">
       <h1 class="title">영양사 통계 & 행사 관리</h1>
 
+      <!-- 영양사 로그인 (4단계): 로그인하기 전에는 이 상자만 보임 -->
+      <div id="loginBox" class="admin-box login-box">
+        <h3>🔒 영양사 로그인</h3>
+        <p class="login-help">영양사 계정으로 로그인해야 통계와 등록 기능을 쓸 수 있어요.</p>
+        <input id="loginId" class="admin-input" type="text" placeholder="아이디" autocomplete="username">
+        <input id="loginPw" class="admin-input" type="password" placeholder="비밀번호" autocomplete="current-password">
+        <button id="loginBtn" class="submit-btn full">로그인</button>
+        <p id="loginMsg" class="login-msg"></p>
+      </div>
+
+      <!-- 로그인한 영양사에게만 보이는 부분 -->
+      <div id="adminContent" class="hidden">
+      <div class="login-bar">
+        <span id="loginUser"></span>
+        <button id="logoutBtn" class="detail-btn">로그아웃</button>
+      </div>
+
       <!-- 주간 리포트 (2단계: 최근 7일 기준) -->
       <div class="week-head">
         <h3>📅 주간 리포트</h3>
@@ -131,6 +148,7 @@
         <input id="evImage" class="admin-input" type="file" accept="image/png, image/jpeg, image/gif, image/webp">
         <button id="evSubmit" class="submit-btn full">공지 등록하기</button>
       </div>
+      </div><!-- /adminContent -->
     </section>
 
   </div>
