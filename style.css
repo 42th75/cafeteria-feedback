@@ -330,7 +330,7 @@ body {
 
 .chart-wrap {
   position: relative;
-  height: 300px;
+  height: 420px; /* 메뉴 17개 정도의 이름이 겹치지 않게 */
 }
 
 .event-table {
