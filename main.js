@@ -736,7 +736,8 @@ function renderAvgChart() {
       indexAxis: "y",
       maintainAspectRatio: false,
       scales: {
-        x: { min: 0, max: 5 }
+        x: { min: 0, max: 5 },
+        y: { ticks: { autoSkip: false } } // 메뉴가 많아도 메뉴 이름을 건너뛰지 않고 모두 표시
       },
       plugins: {
         legend: { display: false }
@@ -780,7 +781,7 @@ function renderDistChart() {
       maintainAspectRatio: false,
       scales: {
         x: { stacked: true, ticks: { precision: 0 } }, // 개수라서 눈금은 정수만
-        y: { stacked: true }
+        y: { stacked: true, ticks: { autoSkip: false } } // 메뉴 이름 모두 표시
       },
       plugins: {
         legend: { position: "top", labels: { boxWidth: 12 } }
