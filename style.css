@@ -648,3 +648,58 @@ body {
   background: #eeeeee;
   color: #888;
 }
+
+/* 후기 이유 선택 (#5, #14) */
+.reasons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 6px;
+}
+
+.reason-chip {
+  border: 1px solid #a8d5bd;
+  background: white;
+  color: #555;
+  border-radius: 12px;
+  padding: 2px 8px;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.reason-chip.on {
+  background: #2e7d52;
+  border-color: #2e7d52;
+  color: white;
+}
+
+.reason-tag {
+  display: inline-block;
+  background: #fff1d6;
+  color: #b07a00;
+  border-radius: 8px;
+  padding: 0 6px;
+  margin-left: 4px;
+  font-size: 11px;
+}
+
+/* 내 후기 수정·삭제 (#2) */
+.mine-tools {
+  float: right;
+}
+
+.edit-btn,
+.delete-btn,
+.cancel-btn {
+  border: 1px solid #ccc;
+  background: white;
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+  cursor: pointer;
+  margin-left: 2px;
+}
+
+.delete-btn {
+  color: #d33;
+}

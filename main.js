@@ -34,6 +34,13 @@ let recentReviews = []; // 최신 후기 10개
 
 // 등록 전에 클릭해서 고른 별점을 잠깐 기억하는 곳 (예: { "제육볶음": 4 })
 let selectedScore = {};
+let selectedReasons = {}; // 고른 이유 (#5) 예: { "제육볶음": ["매워요"] }
+let editingIds = {};      // 수정 중인 내 후기 id (#2) 예: { "제육볶음": 42 }
+let myReviewIds = [];     // 이 브라우저에서 쓴 내 후기 id 목록 (#2)
+
+// 후기 이유 선택지 (#5, #14) — stage5.sql의 reviews_reasons_check와 똑같아야 함
+const REASONS = ["맛있어요", "짜요", "싱거워요", "매워요", "느끼해요",
+                 "양이 많아요", "양이 적어요", "식었어요", "딱딱해요", "바꾸면 다시 먹고 싶어요"];
 
 let openIds = [];      // 펼쳐서 보고 있는 행사 id
 let busyLikeIds = [];  // 좋아요 요청을 보내는 중인 행사 id (연속 클릭 방지)
@@ -143,6 +150,31 @@ function saveLikedIds() {
 
 let likedIds = readLikedIds(); // 내가 좋아요 누른 행사 id
 
+// 이 브라우저를 구분하는 무작위 표식 (#2, #3)
+// 학생 계정이 없어서, 같은 브라우저에서 쓴 후기만 "내 후기"로 보고 수정·삭제할 수 있게 함
+// DB에서는 다른 사람이 이 표식을 읽을 수 없음 (stage5.sql의 칸 단위 권한)
+const TOKEN_KEY = "writerToken";
+
+function makeToken() {
+  if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+  return Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2);
+}
+
+function readToken() {
+  try {
+    let token = localStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      token = makeToken();
+      localStorage.setItem(TOKEN_KEY, token);
+    }
+    return token;
+  } catch (err) {
+    return makeToken(); // 저장이 막힌 브라우저: 이번 접속 동안만 쓰는 표식
+  }
+}
+
+const writerToken = readToken();
+
 // ===== 4. 데이터 불러오기 (DB → State) =====
 // fetch로 시작하는 함수는 "DB에서 가져오기"만 하고 화면은 건드리지 않습니다.
 
@@ -159,6 +191,13 @@ async function fetchLatestDate() {
 async function fetchMealDates() {
   const data = check(await db.from("diet_logs").select("date").order("date"));
   return [...new Set(data.map(row => row.date))];
+}
+
+// 이 브라우저에서 쓴 내 후기 id 목록 (#2) — stage5.sql의 my_review_ids 함수
+async function fetchMyReviewIds() {
+  const data = check(await db.rpc("my_review_ids", { p_token: writerToken }));
+  // 결과가 [1, 2] 또는 [{ my_review_ids: 1 }] 모양일 수 있어서 둘 다 숫자로 바꿈
+  return data.map(x => Number(typeof x === "object" ? Object.values(x)[0] : x));
 }
 
 // 메뉴 이름에 검색어가 들어간 급식 찾기 (최근 날짜부터 20개) (#4)
@@ -183,7 +222,7 @@ async function fetchDay(date) {
       .eq("date", date)
       .order("id"),
     db.from("reviews")
-      .select("menu_name, score, comment")
+      .select("id, menu_name, score, comment, reasons")
       .eq("date", date)
       .order("created_at"),
     db.from("menu_date_stats")
@@ -294,11 +333,12 @@ async function loadMeal() {
   menuList.innerHTML = `<p class="empty">${LOADING_TEXT}</p>`;
 
   try {
-    const [day, dates] = await Promise.all([fetchDay(date), fetchMealDates()]);
+    const [day, dates, mine] = await Promise.all([fetchDay(date), fetchMealDates(), fetchMyReviewIds()]);
     // 응답을 기다리는 사이에 다른 날짜로 넘어갔으면 이 결과는 버리기
     if (date !== currentDate) return;
 
     mealDates = dates;
+    myReviewIds = mine;
     dayMenus = day.menus;
     dayReviews = day.reviews;
     dayStats = day.stats;
@@ -436,12 +476,29 @@ function render() {
       starButtons += `<button class="star ${on}" data-menu="${safeName}" data-score="${i}">★</button>`;
     }
 
+    // 이유 선택 버튼 (#5, #14)
+    const pickedReasons = selectedReasons[name] || [];
+    let reasonButtons = "";
+    for (const reason of REASONS) {
+      const on = pickedReasons.includes(reason) ? "on" : "";
+      reasonButtons += `<button class="reason-chip ${on}" data-menu="${safeName}" data-reason="${reason}">${reason}</button>`;
+    }
+
     let reviewItems = "";
     for (const r of menuReviews) {
+      const tags = (r.reasons || []).map(t => `<span class="reason-tag">${escapeHTML(t)}</span>`).join("");
+      // 이 브라우저에서 쓴 후기에만 수정·삭제 버튼 (#2)
+      const mineButtons = myReviewIds.includes(r.id)
+        ? `<span class="mine-tools">
+             <button class="edit-btn" data-id="${r.id}" data-menu="${safeName}">수정</button>
+             <button class="delete-btn" data-id="${r.id}">삭제</button>
+           </span>`
+        : "";
       reviewItems += `
-        <li><span class="mini-star">${"★".repeat(r.score)}</span>${escapeHTML(r.comment)}</li>
+        <li><span class="mini-star">${"★".repeat(r.score)}</span>${escapeHTML(r.comment)}${tags}${mineButtons}</li>
       `;
     }
+    const editing = editingIds[name] !== undefined;
 
     html += `
       <div class="menu-card ${name === highlightMenu ? "highlight" : ""}">
@@ -456,9 +513,11 @@ function render() {
 
         <div class="feedback">
           <div class="stars">${starButtons}</div>
+          <div class="reasons">${reasonButtons}</div>
           <div class="review-input">
-            <input type="text" placeholder="한 줄 후기를 남겨주세요" maxlength="50">
-            <button class="submit-btn" data-menu="${safeName}">등록</button>
+            <input type="text" placeholder="${editing ? "후기를 고쳐 주세요" : "한 줄 후기 (예: 덜 맵게 하면 좋겠어요)"}" maxlength="50">
+            <button class="submit-btn" data-menu="${safeName}">${editing ? "수정 완료" : "등록"}</button>
+            ${editing ? `<button class="cancel-btn" data-menu="${safeName}">취소</button>` : ""}
           </div>
         </div>
 
@@ -522,6 +581,8 @@ searchResults.addEventListener("click", (e) => {
   currentDate = hit.dataset.date;
   highlightMenu = hit.dataset.menu;
   selectedScore = {};
+  selectedReasons = {};
+  editingIds = {};
   searchResults.classList.add("hidden");
   loadMeal();
 });
@@ -531,6 +592,8 @@ function moveDate(diff) {
   if (!currentDate) return; // 아직 첫 날짜를 못 정했으면 무시
   currentDate = shiftDate(currentDate, diff);
   selectedScore = {};
+  selectedReasons = {};
+  editingIds = {};
   highlightMenu = null; // 다른 날로 가면 검색 강조는 끄기
   loadMeal();
 }
@@ -545,6 +608,8 @@ menuList.addEventListener("click", async (e) => {
   if (jump) {
     currentDate = jump.dataset.date;
     selectedScore = {};
+    selectedReasons = {};
+    editingIds = {};
     loadMeal();
     return;
   }
@@ -560,12 +625,72 @@ menuList.addEventListener("click", async (e) => {
     return;
   }
 
+  // 이유 선택/해제 (#5) — 다시 그리지 않고 버튼 색만 바꿈 (입력 중인 후기가 지워지지 않게)
+  const chip = e.target.closest(".reason-chip");
+  if (chip) {
+    const name = chip.dataset.menu;
+    const reason = chip.dataset.reason;
+    const list = selectedReasons[name] || [];
+    selectedReasons[name] = list.includes(reason) ? list.filter(x => x !== reason) : [...list, reason];
+    chip.classList.toggle("on");
+    return;
+  }
+
+  // 내 후기 수정 시작 (#2): 그 후기의 별점·이유·내용을 입력칸에 채워 넣기
+  const edit = e.target.closest(".edit-btn");
+  if (edit) {
+    const id = Number(edit.dataset.id);
+    const review = dayReviews.find(r => r.id === id);
+    if (!review) return;
+    const name = edit.dataset.menu;
+    editingIds[name] = id;
+    selectedScore[name] = review.score;
+    selectedReasons[name] = review.reasons || [];
+    render();
+    // 다시 그린 카드의 입력칸에 기존 후기 내용 넣기
+    const btn = [...menuList.querySelectorAll(".submit-btn")].find(b => b.dataset.menu === name);
+    if (btn) {
+      const input = btn.closest(".menu-card").querySelector("input");
+      input.value = review.comment;
+      input.focus();
+    }
+    return;
+  }
+
+  // 수정 취소
+  const cancel = e.target.closest(".cancel-btn");
+  if (cancel) {
+    const name = cancel.dataset.menu;
+    delete editingIds[name];
+    delete selectedScore[name];
+    delete selectedReasons[name];
+    render();
+    return;
+  }
+
+  // 내 후기 삭제 (#2): 내 후기인지 DB 함수가 표식으로 확인
+  const del = e.target.closest(".delete-btn");
+  if (del) {
+    if (!confirm("이 후기를 삭제할까요? 되돌릴 수 없어요.")) return;
+    del.disabled = true;
+    const { data, error } = await db.rpc("delete_my_review", { p_id: Number(del.dataset.id), p_token: writerToken });
+    if (error || data !== true) {
+      console.error("후기 삭제 실패:", error);
+      alert("후기를 삭제하지 못했어요. 이 브라우저에서 쓴 후기만 삭제할 수 있어요.");
+      del.disabled = false;
+      return;
+    }
+    loadMeal();
+    return;
+  }
+
   const submit = e.target.closest(".submit-btn");
   if (submit) {
     const name = submit.dataset.menu;
     const input = submit.closest(".menu-card").querySelector("input");
     const comment = input.value.trim();
     const score = selectedScore[name];
+    const reasons = selectedReasons[name] || [];
 
     if (!score) {
       alert("별점을 먼저 선택해주세요.");
@@ -578,21 +703,43 @@ menuList.addEventListener("click", async (e) => {
 
     // DB에 저장하는 동안 버튼을 잠가서 두 번 등록되지 않게 하기
     submit.disabled = true;
-    const { error } = await db.from("reviews").insert({
-      date: currentDate,
-      menu_name: name,
-      score: score,
-      comment: comment
-    });
+    let error = null;
+
+    if (editingIds[name] !== undefined) {
+      // (1) 수정: 내 후기인지 DB 함수가 표식으로 확인 (#2)
+      const res = await db.rpc("update_my_review", {
+        p_id: editingIds[name], p_token: writerToken,
+        p_score: score, p_comment: comment, p_reasons: reasons.length ? reasons : null
+      });
+      error = res.error || (res.data !== true ? { message: "내 후기가 아니에요" } : null);
+    } else {
+      // (2) 새 후기: 브라우저 표식을 같이 저장 → 같은 메뉴 중복 방지 (#3)
+      const res = await db.from("reviews").insert({
+        date: currentDate,
+        menu_name: name,
+        score: score,
+        comment: comment,
+        reasons: reasons.length ? reasons : null,
+        writer_token: writerToken
+      });
+      error = res.error;
+    }
 
     if (error) {
-      console.error("후기 등록 실패:", error);
-      alert("후기 등록에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      console.error("후기 저장 실패:", error);
+      if (error.code === "23505") {
+        // 23505 = unique 위반: 이 브라우저에서 이미 이 메뉴에 후기를 씀
+        alert("이 메뉴에는 이미 후기를 남겼어요. 내 후기의 [수정]을 눌러 고쳐 주세요.");
+      } else {
+        alert("후기 저장에 실패했어요. 잠시 후 다시 시도해 주세요.");
+      }
       submit.disabled = false;
       return;
     }
 
     delete selectedScore[name];
+    delete selectedReasons[name];
+    delete editingIds[name];
     loadMeal(); // 새 후기와 바뀐 평균을 DB에서 다시 받아와 그리기
   }
 });
