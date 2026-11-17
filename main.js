@@ -22,6 +22,7 @@ let dayReviews = [];    // 그날의 후기 목록 (reviews)
 let highlightMenu = null; // 검색으로 찾아간 메뉴 이름 (그 카드를 강조) (#4)
 let mealDates = [];     // 급식이 등록된 모든 날짜 (오래된 순) 예: ["2026-10-26", ...]
 let dayStats = {};      // 그날 메뉴별 평균 (menu_date_stats) 예: { "제육볶음": { avg: 4.5, count: 2 } }
+let rankStats = [];     // 선호도 탭 랭킹에 쓰는 메뉴별 평균 (선택한 기간) (#15)
 let menuStats = [];     // 전체 메뉴별 평균 (menu_stats) 예: [{ name, avg, count }, ...]
 let events = [];        // 행사 목록 (events)
 
@@ -60,6 +61,7 @@ const topList = document.getElementById("topList");
 const bottomList = document.getElementById("bottomList");
 const eventList = document.getElementById("eventList");
 const sortSelect = document.getElementById("sortSelect");
+const rankPeriod = document.getElementById("rankPeriod");
 
 const bestMenu = document.getElementById("bestMenu");
 const worstMenu = document.getElementById("worstMenu");
@@ -199,12 +201,29 @@ async function fetchDay(date) {
 // 메뉴별 평균 별점 (view에서 SQL이 GROUP BY로 계산한 결과)
 // 평균 높은 순 → 평균이 같으면 후기 많은 순
 // viewName: "menu_stats"(전체 기간) 또는 "weekly_menu_stats"(최근 7일)
+// 기간을 정해서 메뉴별 평균 가져오기 (#15) — stage5.sql의 menu_stats_between 함수
+// 결과 모양은 fetchMenuStats와 같음
+async function fetchMenuStatsBetween(start, end) {
+  const data = check(
+    await db.rpc("menu_stats_between", { p_start: start, p_end: end })
+      .order("avg_score", { ascending: false })
+      .order("review_count", { ascending: false })
+      .order("menu_name") // 평균·후기 수가 같으면 이름순 (순서가 매번 바뀌지 않게)
+  );
+  return data.map(s => ({
+    name: s.menu_name,
+    avg: Number(s.avg_score),
+    count: Number(s.review_count)
+  }));
+}
+
 async function fetchMenuStats(viewName = "menu_stats") {
   const data = check(
     await db.from(viewName)
       .select("menu_name, avg_score, review_count")
       .order("avg_score", { ascending: false })
       .order("review_count", { ascending: false })
+      .order("menu_name") // 평균·후기 수가 같으면 이름순 (순서가 매번 바뀌지 않게)
   );
   return data.map(s => ({
     name: s.menu_name,
@@ -295,7 +314,14 @@ async function loadRanking() {
   bottomList.innerHTML = `<li>${LOADING_TEXT}</li>`;
 
   try {
-    menuStats = await fetchMenuStats();
+    // 기간 선택: 전체면 menu_stats view, 아니면 "오늘 포함 최근 N일" 함수
+    const period = rankPeriod.value;
+    if (period === "all") {
+      rankStats = await fetchMenuStats();
+    } else {
+      const today = toKey(new Date());
+      rankStats = await fetchMenuStatsBetween(shiftDate(today, -(Number(period) - 1)), today);
+    }
     renderRanking();
   } catch (err) {
     console.error("랭킹 불러오기 실패:", err);
@@ -582,7 +608,7 @@ function rankItem(rank, s) {
 }
 
 function renderRanking() {
-  const list = menuStats; // 이미 평균 높은 순으로 정렬되어 있음
+  const list = rankStats; // 이미 평균 높은 순으로 정렬되어 있음
   const top = list.slice(0, 5);
   const bottom = list.slice(5).reverse().slice(0, 3);
 
@@ -596,7 +622,7 @@ function renderRanking() {
     bottomHTML += rankItem(i + 1, bottom[i]);
   }
 
-  topList.innerHTML = topHTML || `<li>후기가 아직 없어요</li>`;
+  topList.innerHTML = topHTML || `<li>이 기간에는 후기가 없어요</li>`;
   bottomList.innerHTML = bottomHTML || `<li>데이터가 부족해요</li>`;
 }
 
@@ -781,6 +807,7 @@ eventList.addEventListener("click", async (e) => {
 });
 
 sortSelect.addEventListener("change", renderEvents);
+rankPeriod.addEventListener("change", loadRanking); // 랭킹 기간을 바꾸면 다시 불러오기 (#15)
 
 // ===== 12. 영양사 대시보드 그리기 (Output) =====
 // 대시보드는 부분이 많아서, 부분별 그리기 함수를 따로 만들고 여기서 차례로 부릅니다.

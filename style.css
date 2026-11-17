@@ -605,3 +605,14 @@ body {
   border: 2px solid #ffb800;
   background: #fffaf0;
 }
+
+/* 랭킹 기간 선택 (#15) */
+.period-bar {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 8px;
+}
