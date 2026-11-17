@@ -19,6 +19,7 @@ const ERROR_TEXT = "데이터를 불러오지 못했어요. 인터넷 연결을 
 let currentDate = null; // 지금 보고 있는 날짜 (예: "2026-10-30")
 let dayMenus = [];      // 그날의 메뉴 목록 (diet_logs)
 let dayReviews = [];    // 그날의 후기 목록 (reviews)
+let mealDates = [];     // 급식이 등록된 모든 날짜 (오래된 순) 예: ["2026-10-26", ...]
 let dayStats = {};      // 그날 메뉴별 평균 (menu_date_stats) 예: { "제육볶음": { avg: 4.5, count: 2 } }
 let menuStats = [];     // 전체 메뉴별 평균 (menu_stats) 예: [{ name, avg, count }, ...]
 let events = [];        // 행사 목록 (events)
@@ -146,6 +147,13 @@ async function fetchLatestDate() {
   return data.length > 0 ? data[0].date : null;
 }
 
+// 급식이 등록된 모든 날짜 (오래된 날짜 → 최근 날짜, 중복 없이)
+// 오늘 급식이 없을 때 "가까운 급식일로 이동" 버튼을 만드는 데 사용 (#12)
+async function fetchMealDates() {
+  const data = check(await db.from("diet_logs").select("date").order("date"));
+  return [...new Set(data.map(row => row.date))];
+}
+
 // 하루치 메뉴 + 후기 + 메뉴별 평균을 한꺼번에(동시에) 가져오기
 async function fetchDay(date) {
   const [menuRes, reviewRes, statRes] = await Promise.all([
@@ -248,10 +256,11 @@ async function loadMeal() {
   menuList.innerHTML = `<p class="empty">${LOADING_TEXT}</p>`;
 
   try {
-    const day = await fetchDay(date);
+    const [day, dates] = await Promise.all([fetchDay(date), fetchMealDates()]);
     // 응답을 기다리는 사이에 다른 날짜로 넘어갔으면 이 결과는 버리기
     if (date !== currentDate) return;
 
+    mealDates = dates;
     dayMenus = day.menus;
     dayReviews = day.reviews;
     dayStats = day.stats;
@@ -354,7 +363,17 @@ function render() {
   dateText.textContent = formatDate(currentDate);
 
   if (dayMenus.length === 0) {
-    menuList.innerHTML = `<p class="empty">이 날짜의 급식 정보가 없습니다.</p>`;
+    // 이 날짜 앞뒤로 가장 가까운 급식일 찾기 (mealDates는 오래된 순으로 정렬되어 있음)
+    const before = mealDates.filter(d => d < currentDate).pop();
+    const after = mealDates.find(d => d > currentDate);
+    let jumps = "";
+    if (before) jumps += `<button class="jump-btn" data-date="${before}">◀ 이전 급식일 (${shortDate(before)})</button>`;
+    if (after) jumps += `<button class="jump-btn" data-date="${after}">다음 급식일 (${shortDate(after)}) ▶</button>`;
+
+    menuList.innerHTML = `
+      <p class="empty">이 날짜의 급식 정보가 없습니다.</p>
+      ${jumps ? `<div class="jump-bar">${jumps}</div>` : ""}
+    `;
     return;
   }
 
@@ -418,6 +437,15 @@ nextBtn.addEventListener("click", () => moveDate(1));
 
 // ===== 8. 별점 클릭 & 후기 등록 (Input) =====
 menuList.addEventListener("click", async (e) => {
+  // 급식이 없는 날의 "가까운 급식일로 이동" 버튼 (#12)
+  const jump = e.target.closest(".jump-btn");
+  if (jump) {
+    currentDate = jump.dataset.date;
+    selectedScore = {};
+    loadMeal();
+    return;
+  }
+
   const star = e.target.closest(".star");
   if (star) {
     const name = star.dataset.menu;
@@ -1084,7 +1112,7 @@ eventBanner.addEventListener("click", async () => {
 });
 
 // ===== 15. 처음 시작 =====
-// DB에 급식이 있는 가장 최근 날짜를 찾아서 그 날짜부터 보여주기
+// 항상 "오늘" 날짜로 시작 (#12). 오늘 급식이 없으면 render()가 가까운 급식일 버튼을 보여줌
 async function init() {
   if (!db) {
     console.error("supabase-js를 불러오지 못했습니다. index.html의 CDN 주소를 확인하세요.");
@@ -1092,15 +1120,7 @@ async function init() {
     return;
   }
 
-  menuList.innerHTML = `<p class="empty">${LOADING_TEXT}</p>`;
-
-  try {
-    currentDate = (await fetchLatestDate()) || toKey(new Date());
-  } catch (err) {
-    console.error("최근 급식 날짜 불러오기 실패:", err);
-    currentDate = toKey(new Date()); // 실패하면 오늘 날짜로
-  }
-
+  currentDate = toKey(new Date()); // 이 컴퓨터(브라우저)의 오늘 날짜
   loadMeal();
   loadBanner();
 }

@@ -540,3 +540,23 @@ body {
   font-weight: normal;
   color: #888;
 }
+
+/* 급식이 없는 날의 "가까운 급식일로 이동" 버튼 (#12) */
+.jump-bar {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: -14px;
+  margin-bottom: 14px;
+}
+
+.jump-btn {
+  border: 1px solid #2e7d52;
+  background: white;
+  color: #2e7d52;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
