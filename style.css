@@ -616,3 +616,35 @@ body {
   color: #555;
   margin-bottom: 8px;
 }
+
+/* 행사 진행 상태 배지와 "진행 중만" 체크 (#9) */
+.event-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ongoing-label {
+  font-size: 12px;
+  color: #555;
+  cursor: pointer;
+}
+
+.status-badge {
+  font-size: 11px;
+  font-weight: bold;
+  border-radius: 10px;
+  padding: 1px 7px;
+  margin-right: 4px;
+  vertical-align: middle;
+}
+
+.status-on {
+  background: #d6f0e0;
+  color: #2e7d52;
+}
+
+.status-off {
+  background: #eeeeee;
+  color: #888;
+}

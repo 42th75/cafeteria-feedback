@@ -64,10 +64,14 @@
 
       <div class="event-head">
         <h3>📢 급식 행사</h3>
-        <select id="sortSelect">
-          <option value="latest">최신순</option>
-          <option value="popular">인기순</option>
-        </select>
+        <div class="event-tools">
+          <!-- 오늘 진행 중인 행사만 보기 (#9) -->
+          <label class="ongoing-label"><input id="ongoingOnly" type="checkbox"> 진행 중만</label>
+          <select id="sortSelect">
+            <option value="latest">최신순</option>
+            <option value="popular">인기순</option>
+          </select>
+        </div>
       </div>
       <div id="eventList"></div>
     </section>
@@ -158,6 +162,11 @@
         <h3>✏️ 행사 등록</h3>
         <input id="evTitle" class="admin-input" type="text" placeholder="제목" maxlength="30">
         <input id="evPeriod" class="admin-input" type="text" placeholder="기간 (예: ~ 11월 15일)" maxlength="20">
+        <!-- 시작일·종료일 (선택, #9): 비워 두면 "상시" 행사 -->
+        <div class="nutri-grid">
+          <label class="file-label">시작일 (선택)<input id="evStart" class="admin-input" type="date"></label>
+          <label class="file-label">종료일 (선택)<input id="evEnd" class="admin-input" type="date"></label>
+        </div>
         <textarea id="evContent" class="admin-input" rows="3" placeholder="내용" maxlength="1000"></textarea>
         <!-- 이미지 첨부 (3단계, 선택 사항): png/jpg/gif/webp, 2MB 이하 -->
         <label class="file-label" for="evImage">이미지 첨부 (선택, 2MB 이하)</label>

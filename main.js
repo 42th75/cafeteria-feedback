@@ -62,6 +62,7 @@ const bottomList = document.getElementById("bottomList");
 const eventList = document.getElementById("eventList");
 const sortSelect = document.getElementById("sortSelect");
 const rankPeriod = document.getElementById("rankPeriod");
+const ongoingOnly = document.getElementById("ongoingOnly");
 
 const bestMenu = document.getElementById("bestMenu");
 const worstMenu = document.getElementById("worstMenu");
@@ -236,7 +237,7 @@ async function fetchMenuStats(viewName = "menu_stats") {
 async function fetchEvents() {
   const [eventRes, countRes] = await Promise.all([
     db.from("events")
-      .select("id, title, content, period, image_url, likes, views, created_at")
+      .select("id, title, content, period, image_url, likes, views, created_at, start_date, end_date")
       .order("created_at", { ascending: false }),
     db.from("event_comment_counts").select("event_id, comment_count")
   ]);
@@ -627,8 +628,21 @@ function renderRanking() {
 }
 
 // ===== 10. 행사 게시판 그리기 (Output) =====
+// 행사 진행 상태 (#9): 날짜 칸이 둘 다 비어 있으면 "상시"
+// 날짜 글자("2026-11-09")는 크기 비교가 날짜 순서와 같아서 문자열로 비교해도 됨
+function eventStatus(ev, today) {
+  if (ev.start_date && today < ev.start_date) return "예정";
+  if (ev.end_date && today > ev.end_date) return "종료";
+  if (!ev.start_date && !ev.end_date) return "상시";
+  return "진행 중";
+}
+
 function renderEvents() {
-  const sorted = [...events];
+  const today = toKey(new Date());
+  // "진행 중만"을 체크하면 예정·종료 행사는 빼기 (상시 행사는 항상 진행 중으로 봄)
+  const sorted = ongoingOnly.checked
+    ? events.filter(ev => ["진행 중", "상시"].includes(eventStatus(ev, today)))
+    : [...events];
 
   if (sortSelect.value === "latest") {
     sorted.sort((a, b) => b.created_at.localeCompare(a.created_at));
@@ -644,7 +658,10 @@ function renderEvents() {
 
     html += `
       <div class="event-card" id="event-${ev.id}">
-        <div class="event-title">${escapeHTML(ev.title)}</div>
+        <div class="event-title">
+          <span class="status-badge status-${eventStatus(ev, today) === "진행 중" || eventStatus(ev, today) === "상시" ? "on" : "off"}">${eventStatus(ev, today)}</span>
+          ${escapeHTML(ev.title)}
+        </div>
         <div class="event-meta">기간: ${escapeHTML(ev.period)} · 조회 ${ev.views} · 댓글 ${commentCounts[ev.id] || 0}</div>
         ${isOpen ? eventDetailHTML(ev) : ""}
         <div class="event-actions">
@@ -654,7 +671,7 @@ function renderEvents() {
       </div>
     `;
   }
-  eventList.innerHTML = html || `<p class="empty">등록된 행사가 없어요.</p>`;
+  eventList.innerHTML = html || `<p class="empty">${ongoingOnly.checked ? "오늘 진행 중인 행사가 없어요." : "등록된 행사가 없어요."}</p>`;
 }
 
 // 이미지 주소가 우리 버킷 주소일 때만 <img> 만들기 (그 외 주소는 무시)
@@ -697,7 +714,9 @@ function renderBanner() {
     eventBanner.classList.add("hidden");
     return;
   }
-  const ev = events[0]; // fetchEvents가 최신순으로 정렬해서 줌
+  // 최신순으로 정렬된 행사 중 "진행 중이거나 상시"인 첫 행사를 홍보 (#9). 없으면 가장 최근 행사
+  const today = toKey(new Date());
+  const ev = events.find(e => ["진행 중", "상시"].includes(eventStatus(e, today))) || events[0];
   eventBanner.dataset.id = ev.id;
   eventBanner.innerHTML = `
     ${eventImageHTML(ev, "banner-img")}
@@ -807,7 +826,8 @@ eventList.addEventListener("click", async (e) => {
 });
 
 sortSelect.addEventListener("change", renderEvents);
-rankPeriod.addEventListener("change", loadRanking); // 랭킹 기간을 바꾸면 다시 불러오기 (#15)
+rankPeriod.addEventListener("change", loadRanking);
+ongoingOnly.addEventListener("change", renderEvents); // 진행 중만 보기 (#9) // 랭킹 기간을 바꾸면 다시 불러오기 (#15)
 
 // ===== 12. 영양사 대시보드 그리기 (Output) =====
 // 대시보드는 부분이 많아서, 부분별 그리기 함수를 따로 만들고 여기서 차례로 부릅니다.
@@ -1003,6 +1023,8 @@ mSubmit.addEventListener("click", async () => {
 const evTitle = document.getElementById("evTitle");
 const evPeriod = document.getElementById("evPeriod");
 const evContent = document.getElementById("evContent");
+const evStart = document.getElementById("evStart");
+const evEnd = document.getElementById("evEnd");
 const evImage = document.getElementById("evImage");
 const evSubmit = document.getElementById("evSubmit");
 
@@ -1025,9 +1047,15 @@ evSubmit.addEventListener("click", async () => {
   const period = evPeriod.value.trim();
   const content = evContent.value.trim();
   const file = evImage.files[0]; // 이미지는 선택 사항 (없으면 undefined)
+  const startDate = evStart.value || null; // 날짜는 선택 사항 (#9)
+  const endDate = evEnd.value || null;
 
   if (title === "" || content === "") {
     alert("제목과 내용을 입력해주세요.");
+    return;
+  }
+  if (startDate && endDate && startDate > endDate) {
+    alert("종료일은 시작일보다 빠를 수 없어요.");
     return;
   }
   if (file && !IMAGE_TYPES.includes(file.type)) {
@@ -1059,6 +1087,8 @@ evSubmit.addEventListener("click", async () => {
     title: title,
     content: content,
     period: period || "상시",
+    start_date: startDate,
+    end_date: endDate,
     image_url: imageUrl
   });
   evSubmit.disabled = false;
@@ -1071,6 +1101,8 @@ evSubmit.addEventListener("click", async () => {
 
   evTitle.value = "";
   evPeriod.value = "";
+  evStart.value = "";
+  evEnd.value = "";
   evContent.value = "";
   evImage.value = "";
 
