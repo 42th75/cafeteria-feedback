@@ -703,3 +703,123 @@ body {
 .delete-btn {
   color: #d33;
 }
+
+/* 알레르기 (#1, #12) */
+.allergy-box {
+  background: #fff8f0;
+  border: 1px solid #ffd8a8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  margin-bottom: 12px;
+  font-size: 13px;
+}
+
+.allergy-box summary {
+  cursor: pointer;
+  font-weight: bold;
+  color: #b4540a;
+}
+
+.allergy-summary {
+  font-weight: normal;
+  color: #777;
+  font-size: 12px;
+}
+
+.allergy-checks {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 2px 6px;
+  margin-top: 8px;
+  font-size: 12px;
+}
+
+.allergy-note {
+  font-size: 11px;
+  color: #888;
+  margin: 6px 0;
+}
+
+.allergy-line {
+  font-size: 12px;
+  color: #666;
+  margin-top: 4px;
+}
+
+.allergy-line.none {
+  color: #aaa;
+}
+
+.allergy-mine {
+  color: #d33;
+  font-weight: bold;
+}
+
+.menu-card.allergy-warn {
+  border-color: #ff8f8f;
+  background: #fff5f5;
+}
+
+.allergy-line b {
+  color: #d33;
+}
+
+/* 먹을 예정 투표 (#10) */
+.vote-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: #555;
+}
+
+.vote-btn {
+  border: 1px solid #a8d5bd;
+  background: white;
+  border-radius: 14px;
+  padding: 3px 9px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.vote-btn.on {
+  background: #3b82f6;
+  border-color: #3b82f6;
+  color: white;
+}
+
+/* 영양사: 상자 제목 옆 선택칸, 알레르기·잔반률 입력 줄 */
+.box-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.box-head h3 {
+  margin: 0;
+}
+
+.edit-row {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr 0.8fr auto;
+  gap: 4px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.edit-row .admin-input {
+  margin-bottom: 0;
+}
+
+.edit-name {
+  font-size: 13px;
+  font-weight: bold;
+}
+
+.allergy-note code {
+  background: #eef5f0;
+  padding: 0 3px;
+  border-radius: 3px;
+}

@@ -27,7 +27,10 @@ let menuStats = [];     // 전체 메뉴별 평균 (menu_stats) 예: [{ name, av
 let events = [];        // 행사 목록 (events)
 
 // 영양사 탭에서만 쓰는 데이터 (2단계)
-let latestDate = null;  // 급식이 있는 가장 최근 날짜 = 주간 리포트 기준일
+let latestDate = null;  // 후기가 있는 가장 최근 날짜 = 주간 리포트 기준일 (stage5에서 바뀜)
+let reasonStats = [];   // 메뉴별 후기 이유 개수 (reason_stats) (#5)
+let voteStats = [];     // 오늘 이후 급식 투표 수 (#10)
+let wasteStats = [];    // 잔반률과 별점 (waste_vs_score) (#11)
 let weeklyStats = [];   // 최근 7일 메뉴별 평균 (weekly_menu_stats) 모양은 menuStats와 같음
 let scoreDist = [];     // 메뉴별 1~5점 개수 (score_distribution) 예: [{ menu_name, s1, ..., s5 }]
 let recentReviews = []; // 최신 후기 10개
@@ -175,6 +178,50 @@ function readToken() {
 
 const writerToken = readToken();
 
+// 식품 알레르기 표시 번호 1~19 (#1, #12) — 학교 식단표에 쓰는 번호와 같은 순서
+const ALLERGENS = ["난류", "우유", "메밀", "땅콩", "대두", "밀", "고등어", "게", "새우", "돼지고기",
+                   "복숭아", "토마토", "아황산류", "호두", "닭고기", "쇠고기", "오징어", "조개류", "잣"];
+
+// "내 알레르기"는 건강 정보라서 DB에 보내지 않고 이 브라우저에만 저장
+const MY_ALLERGY_KEY = "myAllergens";
+
+function readMyAllergens() {
+  try {
+    const saved = JSON.parse(localStorage.getItem(MY_ALLERGY_KEY));
+    return Array.isArray(saved) ? saved.map(Number) : [];
+  } catch (err) {
+    return [];
+  }
+}
+
+function saveMyAllergens() {
+  try {
+    localStorage.setItem(MY_ALLERGY_KEY, JSON.stringify(myAllergens));
+  } catch (err) {
+    console.error("내 알레르기 저장 실패:", err);
+  }
+}
+
+let myAllergens = readMyAllergens(); // 예: [1, 5]
+
+// "1,2,5" 또는 "1.2.5" 같은 글자를 [1, 2, 5]로 바꾸기
+// 비어 있으면 null, 1~19가 아닌 값이 있으면 undefined(잘못된 입력)
+function parseAllergens(text) {
+  const parts = String(text).split(/[\s,./]+/).filter(x => x !== "");
+  if (parts.length === 0) return null;
+  const nums = parts.map(Number);
+  if (nums.some(n => !Number.isInteger(n) || n < 1 || n > 19)) return undefined;
+  return [...new Set(nums)].sort((a, b) => a - b);
+}
+
+function hasMyAllergy(allergens) {
+  return (allergens || []).some(n => myAllergens.includes(n));
+}
+
+// 투표 (#10): 그날 메뉴별 투표 수, 내 투표
+let dayVotes = {}; // 예: { "돈가스": { eat: 3, skip: 1 } }
+let myVotes = {};  // 예: { "돈가스": "eat" }
+
 // ===== 4. 데이터 불러오기 (DB → State) =====
 // fetch로 시작하는 함수는 "DB에서 가져오기"만 하고 화면은 건드리지 않습니다.
 
@@ -200,6 +247,69 @@ async function fetchMyReviewIds() {
   return data.map(x => Number(typeof x === "object" ? Object.values(x)[0] : x));
 }
 
+// 그날 메뉴별 투표 수 + 이 브라우저의 투표 (#10) — stage5.sql의 vote_counts, my_votes 함수
+async function fetchVotes(date) {
+  const [countRes, mineRes] = await Promise.all([
+    db.rpc("vote_counts", { p_start: date, p_end: date }),
+    db.rpc("my_votes", { p_token: writerToken })
+  ]);
+  const counts = {};
+  for (const v of check(countRes)) {
+    counts[v.menu_name] = { eat: Number(v.eat_count), skip: Number(v.skip_count) };
+  }
+  const mine = {};
+  for (const v of check(mineRes)) {
+    if (v.date === date) mine[v.menu_name] = v.vote;
+  }
+  return { counts: counts, mine: mine };
+}
+
+// 후기가 있는 가장 최근 날짜 = 주간 리포트 기준일 (weekly_menu_stats view와 같은 기준)
+async function fetchLatestReviewDate() {
+  const data = check(
+    await db.from("reviews").select("date").order("date", { ascending: false }).limit(1)
+  );
+  return data.length > 0 ? data[0].date : null;
+}
+
+// 메뉴별 후기 이유 개수 (#5) — 많은 순
+async function fetchReasonStats() {
+  return check(
+    await db.from("reason_stats")
+      .select("menu_name, reason, reason_count")
+      .order("reason_count", { ascending: false })
+  );
+}
+
+// 기간 안 급식의 투표 수 (#10) — 날짜순
+async function fetchVoteStats(start, end) {
+  return check(
+    await db.rpc("vote_counts", { p_start: start, p_end: end })
+      .order("date")
+      .order("menu_name")
+  );
+}
+
+// 잔반률이 입력된 메뉴와 그 메뉴의 학생 평균 별점 (#11) — 최근 날짜부터
+async function fetchWasteStats() {
+  return check(
+    await db.from("waste_vs_score")
+      .select("date, menu_name, waste_rate, avg_score, review_count")
+      .order("date", { ascending: false })
+      .order("menu_name")
+  );
+}
+
+// 알레르기·잔반률 입력용: 그날 메뉴 목록 (#1, #11)
+async function fetchEditRows(date) {
+  return check(
+    await db.from("diet_logs")
+      .select("id, menu_name, allergens, waste_rate")
+      .eq("date", date)
+      .order("id")
+  );
+}
+
 // 메뉴 이름에 검색어가 들어간 급식 찾기 (최근 날짜부터 20개) (#4)
 // ilike = 대소문자 구분 없이 "포함" 검색. %, _ 는 검색 기호라서 미리 지워 둠
 async function fetchSearch(word) {
@@ -218,7 +328,7 @@ async function fetchSearch(word) {
 async function fetchDay(date) {
   const [menuRes, reviewRes, statRes] = await Promise.all([
     db.from("diet_logs")
-      .select("menu_name, carb, protein, fat, kcal")
+      .select("menu_name, carb, protein, fat, kcal, allergens")
       .eq("date", date)
       .order("id"),
     db.from("reviews")
@@ -315,13 +425,11 @@ async function fetchScoreDistribution() {
 }
 
 // 가장 최근에 작성된 후기 10개
-async function fetchRecentReviews() {
-  return check(
-    await db.from("reviews")
-      .select("date, menu_name, score, comment")
-      .order("created_at", { ascending: false })
-      .limit(10)
-  );
+// 학생 후기 10개 (#13) — sort: "latest"(최신순) 또는 "low"(별점 낮은 순, 같으면 최신순)
+async function fetchRecentReviews(sort = "latest") {
+  let query = db.from("reviews").select("date, menu_name, score, comment, reasons");
+  if (sort === "low") query = query.order("score", { ascending: true });
+  return check(await query.order("created_at", { ascending: false }).limit(10));
 }
 
 // ===== 5. 불러오기 → 그리기 순서 관리 =====
@@ -333,12 +441,18 @@ async function loadMeal() {
   menuList.innerHTML = `<p class="empty">${LOADING_TEXT}</p>`;
 
   try {
-    const [day, dates, mine] = await Promise.all([fetchDay(date), fetchMealDates(), fetchMyReviewIds()]);
+    const isUpcoming = date >= toKey(new Date()); // 오늘 이후 급식만 투표 가능 (#10)
+    const [day, dates, mine, votes] = await Promise.all([
+      fetchDay(date), fetchMealDates(), fetchMyReviewIds(),
+      isUpcoming ? fetchVotes(date) : Promise.resolve({ counts: {}, mine: {} })
+    ]);
     // 응답을 기다리는 사이에 다른 날짜로 넘어갔으면 이 결과는 버리기
     if (date !== currentDate) return;
 
     mealDates = dates;
     myReviewIds = mine;
+    dayVotes = votes.counts;
+    myVotes = votes.mine;
     dayMenus = day.menus;
     dayReviews = day.reviews;
     dayStats = day.stats;
@@ -418,14 +532,21 @@ async function loadDashboard() {
 
   try {
     // 6가지를 동시에 요청하고, 모두 도착하면 한 번에 그리기
-    const [date, stats, weekly, dist, recent, eventData] = await Promise.all([
-      fetchLatestDate(),
+    const today = toKey(new Date());
+    const [date, stats, weekly, dist, recent, eventData, reasons, votes, waste] = await Promise.all([
+      fetchLatestReviewDate(),
       fetchMenuStats("menu_stats"),
       fetchMenuStats("weekly_menu_stats"),
       fetchScoreDistribution(),
-      fetchRecentReviews(),
-      fetchEvents()
+      fetchRecentReviews(recentSort.value),
+      fetchEvents(),
+      fetchReasonStats(),
+      fetchVoteStats(today, shiftDate(today, 60)),
+      fetchWasteStats()
     ]);
+    reasonStats = reasons;
+    voteStats = votes;
+    wasteStats = waste;
     latestDate = date;
     menuStats = stats;
     weeklyStats = weekly;
@@ -501,7 +622,7 @@ function render() {
     const editing = editingIds[name] !== undefined;
 
     html += `
-      <div class="menu-card ${name === highlightMenu ? "highlight" : ""}">
+      <div class="menu-card ${name === highlightMenu ? "highlight" : ""} ${hasMyAllergy(menu.allergens) ? "allergy-warn" : ""}">
         <div class="menu-head">
           <span class="menu-name">${safeName}</span>
           <span class="menu-avg">★ ${stat.avg.toFixed(1)} (${stat.count}명)</span>
@@ -510,6 +631,8 @@ function render() {
           탄수화물 ${menu.carb}g · 단백질 ${menu.protein}g · 지방 ${menu.fat}g<br>
           ${menu.kcal} kcal
         </div>
+        ${allergyLineHTML(menu.allergens)}
+        ${currentDate >= toKey(new Date()) ? voteBarHTML(name, safeName) : ""}
 
         <div class="feedback">
           <div class="stars">${starButtons}</div>
@@ -622,6 +745,23 @@ menuList.addEventListener("click", async (e) => {
 
     const buttons = star.parentElement.querySelectorAll(".star");
     buttons.forEach((b, idx) => b.classList.toggle("on", idx < score));
+    return;
+  }
+
+  // 먹을 예정 / 안 먹을 예정 투표 (#10) — 다시 누르면 내 투표가 바뀜
+  const vote = e.target.closest(".vote-btn");
+  if (vote) {
+    vote.disabled = true;
+    const { error } = await db.rpc("cast_vote", {
+      p_date: currentDate, p_menu: vote.dataset.menu, p_vote: vote.dataset.vote, p_token: writerToken
+    });
+    if (error) {
+      console.error("투표 실패:", error);
+      alert("투표에 실패했어요. 오늘 이후 급식에만 투표할 수 있어요.");
+      vote.disabled = false;
+      return;
+    }
+    loadMeal();
     return;
   }
 
@@ -984,6 +1124,9 @@ function renderDashboard() {
   renderDistChart();
   renderRecentReviews();
   renderEventStats();
+  renderReasonStats();
+  renderVoteStats();
+  renderWasteStats();
 }
 
 // (1) 주간 리포트: 기준일 포함 최근 7일의 최고/최저 메뉴
@@ -1097,6 +1240,7 @@ function renderRecentReviews() {
         <span class="recent-meta">${shortDate(r.date)} · ${escapeHTML(r.menu_name)}</span>
         <span class="mini-star">${"★".repeat(r.score)}</span><br>
         ${escapeHTML(r.comment)}
+        ${(r.reasons || []).map(t => `<span class="reason-tag">${escapeHTML(t)}</span>`).join("")}
       </li>
     `;
   }
@@ -1115,6 +1259,7 @@ function renderEventStats() {
 // ===== 13-1. 급식 메뉴 등록 (Input, 2단계) =====
 const mDate = document.getElementById("mDate");
 const mName = document.getElementById("mName");
+const mAllergens = document.getElementById("mAllergens");
 const mSubmit = document.getElementById("mSubmit");
 // 영양 정보 입력칸 4개: [화면 요소, DB 칸 이름, 안내용 이름]
 const nutriInputs = [
@@ -1143,6 +1288,14 @@ mSubmit.addEventListener("click", async () => {
     row[column] = value;
   }
 
+  // 알레르기 번호 (선택) (#1)
+  const allergens = parseAllergens(mAllergens.value);
+  if (allergens === undefined) {
+    alert("알레르기는 1~19 사이 번호를 쉼표로 구분해 입력해주세요. (예: 1,2,5)");
+    return;
+  }
+  row.allergens = allergens;
+
   mSubmit.disabled = true;
   const { error } = await db.from("diet_logs").insert(row);
   mSubmit.disabled = false;
@@ -1160,10 +1313,263 @@ mSubmit.addEventListener("click", async () => {
 
   // 같은 날 메뉴를 여러 개 연달아 넣기 쉽게 날짜는 남겨 두고 나머지만 비우기
   mName.value = "";
+  mAllergens.value = "";
   for (const [input] of nutriInputs) input.value = "";
 
   await loadDashboard(); // 기준일(가장 최근 날짜)이 바뀌었을 수 있으니 다시 불러오기
   alert(`메뉴가 등록되었습니다. 오늘의 급식 탭에서 ${formatDate(date)}로 가면 볼 수 있어요.`);
+});
+
+// ===== 13-A. 학생 화면 조각: 알레르기 줄, 투표 줄, 내 알레르기 설정 (#1, #10, #12) =====
+function allergyLineHTML(allergens) {
+  if (!allergens || allergens.length === 0) {
+    return `<div class="allergy-line none">알레르기 정보 없음</div>`;
+  }
+  const items = allergens.map(n => {
+    const mine = myAllergens.includes(n) ? "allergy-mine" : "";
+    return `<span class="${mine}">${n}.${ALLERGENS[n - 1]}</span>`;
+  }).join(" ");
+  const warn = hasMyAllergy(allergens) ? `<b>⚠ 내 알레르기 포함</b> · ` : "";
+  return `<div class="allergy-line">${warn}알레르기: ${items}</div>`;
+}
+
+function voteBarHTML(name, safeName) {
+  const count = dayVotes[name] || { eat: 0, skip: 0 };
+  const mine = myVotes[name];
+  return `
+    <div class="vote-bar">
+      <span>미리 투표</span>
+      <button class="vote-btn ${mine === "eat" ? "on" : ""}" data-menu="${safeName}" data-vote="eat">🍽 먹을 예정 ${count.eat}</button>
+      <button class="vote-btn ${mine === "skip" ? "on" : ""}" data-menu="${safeName}" data-vote="skip">🙅 안 먹을 예정 ${count.skip}</button>
+    </div>
+  `;
+}
+
+const allergyChecks = document.getElementById("allergyChecks");
+const myAllergySummary = document.getElementById("myAllergySummary");
+
+function renderAllergyChecks() {
+  let html = "";
+  ALLERGENS.forEach((label, i) => {
+    const n = i + 1;
+    html += `<label><input type="checkbox" value="${n}" ${myAllergens.includes(n) ? "checked" : ""}> ${n}.${label}</label>`;
+  });
+  allergyChecks.innerHTML = html;
+  myAllergySummary.textContent = myAllergens.length
+    ? `(${myAllergens.map(n => ALLERGENS[n - 1]).join(", ")})`
+    : "(없음)";
+}
+
+// 체크를 바꾸면 저장하고, 메뉴 카드를 다시 그려 경고 표시를 바꿈
+allergyChecks.addEventListener("change", () => {
+  myAllergens = [...allergyChecks.querySelectorAll("input:checked")].map(c => Number(c.value));
+  saveMyAllergens();
+  renderAllergyChecks();
+  if (dayMenus.length > 0) render();
+});
+
+// ===== 13-B. 영양사 통계 추가 (#5, #10, #11, #13) =====
+const recentSort = document.getElementById("recentSort");
+const reasonList = document.getElementById("reasonStats");
+const voteTable = document.getElementById("voteStats");
+const wasteTable = document.getElementById("wasteStats");
+
+// 후기 정렬을 바꾸면 후기만 다시 불러오기 (#13)
+recentSort.addEventListener("change", async () => {
+  recentList.innerHTML = `<li>${LOADING_TEXT}</li>`;
+  try {
+    recentReviews = await fetchRecentReviews(recentSort.value);
+    renderRecentReviews();
+  } catch (err) {
+    console.error("후기 불러오기 실패:", err);
+    recentList.innerHTML = `<li>${ERROR_TEXT}</li>`;
+  }
+});
+
+// 메뉴별로 이유를 모아 "짜요 3 · 식었어요 2" 처럼 보여주기 (#5)
+function renderReasonStats() {
+  const byMenu = {};
+  for (const r of reasonStats) {
+    if (!byMenu[r.menu_name]) byMenu[r.menu_name] = [];
+    byMenu[r.menu_name].push(`${escapeHTML(r.reason)} ${r.reason_count}`);
+  }
+  let html = "";
+  for (const name in byMenu) {
+    html += `<li><b>${escapeHTML(name)}</b><br>${byMenu[name].join(" · ")}</li>`;
+  }
+  reasonList.innerHTML = html || `<li>아직 이유가 선택된 후기가 없어요.</li>`;
+}
+
+function renderVoteStats() {
+  let rows = "";
+  for (const v of voteStats) {
+    rows += `<tr><td>${shortDate(v.date)}</td><td>${escapeHTML(v.menu_name)}</td><td>${v.eat_count}</td><td>${v.skip_count}</td></tr>`;
+  }
+  voteTable.innerHTML = rows || `<tr><td colspan="4">오늘 이후 급식에 투표가 아직 없어요.</td></tr>`;
+}
+
+function renderWasteStats() {
+  let rows = "";
+  for (const w of wasteStats) {
+    const score = w.avg_score === null ? "-" : `★${Number(w.avg_score).toFixed(1)} (${w.review_count}명)`;
+    rows += `<tr><td>${shortDate(w.date)}</td><td>${escapeHTML(w.menu_name)}</td><td>${Number(w.waste_rate)}%</td><td>${score}</td></tr>`;
+  }
+  wasteTable.innerHTML = rows || `<tr><td colspan="4">잔반률이 입력된 메뉴가 없어요.</td></tr>`;
+}
+
+// ===== 13-C. 알레르기·잔반률 입력 (#1, #11) =====
+const editDate = document.getElementById("editDate");
+const editList = document.getElementById("editList");
+
+function renderEditList(rows) {
+  if (rows.length === 0) {
+    editList.innerHTML = `<p class="allergy-note">이 날짜에 등록된 메뉴가 없어요.</p>`;
+    return;
+  }
+  let html = "";
+  for (const r of rows) {
+    html += `
+      <div class="edit-row">
+        <span class="edit-name">${escapeHTML(r.menu_name)}</span>
+        <input class="admin-input edit-allergens" type="text" placeholder="알레르기 (예: 1,2,5)" value="${(r.allergens || []).join(",")}">
+        <input class="admin-input edit-waste" type="number" min="0" max="100" step="0.1" placeholder="잔반률 %" value="${r.waste_rate ?? ""}">
+        <button class="submit-btn edit-save" data-id="${r.id}">저장</button>
+      </div>
+    `;
+  }
+  editList.innerHTML = html;
+}
+
+async function loadEditList() {
+  if (editDate.value === "") return;
+  editList.innerHTML = `<p class="allergy-note">${LOADING_TEXT}</p>`;
+  try {
+    renderEditList(await fetchEditRows(editDate.value));
+  } catch (err) {
+    console.error("메뉴 불러오기 실패:", err);
+    editList.innerHTML = `<p class="allergy-note">${ERROR_TEXT}</p>`;
+  }
+}
+
+editDate.addEventListener("change", loadEditList);
+
+editList.addEventListener("click", async (e) => {
+  const save = e.target.closest(".edit-save");
+  if (!save) return;
+  const row = save.closest(".edit-row");
+  const allergens = parseAllergens(row.querySelector(".edit-allergens").value);
+  const wasteText = row.querySelector(".edit-waste").value;
+  const waste = wasteText === "" ? null : Number(wasteText);
+
+  if (allergens === undefined) {
+    alert("알레르기는 1~19 사이 번호를 쉼표로 구분해 입력해주세요. (예: 1,2,5)");
+    return;
+  }
+  if (waste !== null && (Number.isNaN(waste) || waste < 0 || waste > 100)) {
+    alert("잔반률은 0~100 사이 숫자로 입력해주세요.");
+    return;
+  }
+
+  save.disabled = true;
+  // .select("id"): 실제로 바뀐 줄을 돌려받아, 권한이 없어 0줄이 바뀐 경우를 알아내기
+  const { data, error } = await db.from("diet_logs")
+    .update({ allergens: allergens, waste_rate: waste })
+    .eq("id", Number(save.dataset.id))
+    .select("id");
+  save.disabled = false;
+
+  if (error || !data || data.length === 0) {
+    console.error("메뉴 정보 저장 실패:", error);
+    alert("저장하지 못했어요. 영양사 계정으로 로그인했는지 확인해 주세요.");
+    return;
+  }
+  alert("저장되었습니다.");
+  loadDashboard(); // 잔반률 비교 표 다시 그리기
+});
+
+// ===== 13-D. 급식 CSV 일괄 등록 (#7) =====
+const csvFile = document.getElementById("csvFile");
+const csvSubmit = document.getElementById("csvSubmit");
+const csvResult = document.getElementById("csvResult");
+
+// 엑셀의 CSV는 UTF-8 또는 EUC-KR(한글 윈도우 기본)일 수 있어서 둘 다 시도
+function decodeCsv(buffer) {
+  try {
+    return new TextDecoder("utf-8", { fatal: true }).decode(buffer);
+  } catch (err) {
+    return new TextDecoder("euc-kr").decode(buffer);
+  }
+}
+
+// CSV 글자 → 등록할 줄 목록 + 잘못된 줄 안내
+// (쉼표가 들어간 메뉴명은 지원하지 않음)
+function parseMenuCsv(text) {
+  const rows = [];
+  const errors = [];
+  const lines = text.replace(/^﻿/, "").split(/\r?\n/);
+  lines.forEach((line, i) => {
+    if (line.trim() === "") return;
+    const cells = line.split(",").map(c => c.trim());
+    // 첫 칸이 날짜 모양이 아니면 제목 줄로 보고 건너뛰기
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(cells[0])) {
+      if (i === 0) return;
+      errors.push(`${i + 1}번째 줄: 날짜는 2026-11-23 모양이어야 해요`);
+      return;
+    }
+    const [date, name, carb, protein, fat, kcal, allergyText = ""] = cells;
+    const nums = [carb, protein, fat, kcal].map(Number);
+    if (!name || name.length > 30) {
+      errors.push(`${i + 1}번째 줄: 메뉴명은 1~30자여야 해요`);
+      return;
+    }
+    if ([carb, protein, fat, kcal].some(x => x === undefined || x === "") || nums.some(n => Number.isNaN(n) || n < 0)) {
+      errors.push(`${i + 1}번째 줄: 영양정보 4칸은 0 이상의 숫자여야 해요`);
+      return;
+    }
+    const allergens = parseAllergens(allergyText);
+    if (allergens === undefined) {
+      errors.push(`${i + 1}번째 줄: 알레르기는 1~19 번호를 점으로 구분해요 (예: 1.2.5)`);
+      return;
+    }
+    rows.push({ date: date, menu_name: name, carb: nums[0], protein: nums[1], fat: nums[2], kcal: nums[3], allergens: allergens });
+  });
+  return { rows: rows, errors: errors };
+}
+
+csvSubmit.addEventListener("click", async () => {
+  const file = csvFile.files[0];
+  if (!file) {
+    alert("CSV 파일을 선택해주세요.");
+    return;
+  }
+  const { rows, errors } = parseMenuCsv(decodeCsv(await file.arrayBuffer()));
+  if (errors.length > 0) {
+    // 잘못된 줄이 하나라도 있으면 아무것도 등록하지 않고 알려주기
+    csvResult.innerHTML = `등록하지 않았어요. 고칠 곳:<br>${errors.map(escapeHTML).join("<br>")}`;
+    return;
+  }
+  if (rows.length === 0) {
+    csvResult.textContent = "등록할 메뉴가 없어요.";
+    return;
+  }
+
+  csvSubmit.disabled = true;
+  // 같은 날 같은 메뉴가 이미 있으면 건너뛰기 (ignoreDuplicates). 실제로 들어간 줄만 돌려받음
+  const { data, error } = await db.from("diet_logs")
+    .upsert(rows, { onConflict: "date,menu_name", ignoreDuplicates: true })
+    .select("id");
+  csvSubmit.disabled = false;
+
+  if (error) {
+    console.error("CSV 등록 실패:", error);
+    csvResult.textContent = "등록에 실패했어요. 영양사 계정으로 로그인했는지 확인해 주세요.";
+    return;
+  }
+  const added = data ? data.length : 0;
+  csvResult.textContent = `${added}개 등록 완료` + (rows.length > added ? `, ${rows.length - added}개는 이미 있어서 건너뜀` : "");
+  csvFile.value = "";
+  loadDashboard();
+  loadEditList();
 });
 
 // ===== 13-2. 행사 등록 (Input) =====
@@ -1310,7 +1716,9 @@ async function loadAdmin() {
   if (isAdmin) {
     // 메뉴 등록 날짜칸이 비어 있으면 지금 보고 있는 날짜로 채워 두기
     if (mDate.value === "" && currentDate) mDate.value = currentDate;
+    if (editDate.value === "" && currentDate) editDate.value = currentDate;
     loadDashboard();
+    loadEditList();
   }
 }
 
@@ -1402,6 +1810,7 @@ async function init() {
     return;
   }
 
+  renderAllergyChecks();
   currentDate = toKey(new Date()); // 이 컴퓨터(브라우저)의 오늘 날짜
   loadMeal();
   loadBanner();

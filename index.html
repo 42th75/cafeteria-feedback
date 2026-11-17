@@ -34,6 +34,12 @@
         <button id="searchBtn" class="submit-btn">검색</button>
       </div>
       <ul id="searchResults" class="search-results hidden"></ul>
+      <!-- 내 알레르기 설정 (#1, #12): 이 브라우저에만 저장 -->
+      <details class="allergy-box">
+        <summary>⚠ 내 알레르기 설정 <span id="myAllergySummary" class="allergy-summary"></span></summary>
+        <div id="allergyChecks" class="allergy-checks"></div>
+        <p class="allergy-note">고른 알레르기는 이 브라우저에만 저장되고, 서버로 보내지 않아요.</p>
+      </details>
       <div id="menuList"></div>
     </section>
 
@@ -130,7 +136,14 @@
 
       <!-- 최근 학생 후기 (2단계) -->
       <div class="admin-box">
-        <h3>💬 최근 학생 후기 (최신 10개)</h3>
+        <div class="box-head">
+          <h3>💬 학생 후기 모아보기 (10개)</h3>
+          <!-- 후기 정렬 (#13) -->
+          <select id="recentSort">
+            <option value="latest">최신순</option>
+            <option value="low">별점 낮은 순</option>
+          </select>
+        </div>
         <ul id="recentReviews" class="recent-list"></ul>
       </div>
 
@@ -144,6 +157,38 @@
         </table>
       </div>
 
+      <!-- 후기 이유 집계 = 잔반 원인 (#5, #14) -->
+      <div class="admin-box">
+        <h3>🧂 후기 이유 집계 (잔반 원인)</h3>
+        <ul id="reasonStats" class="recent-list"></ul>
+      </div>
+
+      <!-- 다음 급식 투표 결과 (#10) -->
+      <div class="admin-box">
+        <h3>🗳️ 먹을 예정 투표 결과 (오늘 이후 급식)</h3>
+        <table class="event-table">
+          <thead><tr><th>날짜</th><th>메뉴</th><th>먹을</th><th>안 먹을</th></tr></thead>
+          <tbody id="voteStats"></tbody>
+        </table>
+      </div>
+
+      <!-- 잔반률 vs 별점 (#11) -->
+      <div class="admin-box">
+        <h3>📉 잔반률과 학생 별점 비교</h3>
+        <table class="event-table">
+          <thead><tr><th>날짜</th><th>메뉴</th><th>잔반률</th><th>평균 별점</th></tr></thead>
+          <tbody id="wasteStats"></tbody>
+        </table>
+      </div>
+
+      <!-- 메뉴별 알레르기·잔반률 입력 (#1, #11) -->
+      <div class="admin-box">
+        <h3>✍️ 알레르기·잔반률 입력</h3>
+        <input id="editDate" class="admin-input" type="date">
+        <p class="allergy-note">알레르기는 번호를 쉼표로 (예: 1,2,5,6) · 잔반률은 0~100(%)</p>
+        <div id="editList"></div>
+      </div>
+
       <!-- 급식 메뉴 등록 (2단계) -->
       <div class="admin-box">
         <h3>🍱 급식 메뉴 등록</h3>
@@ -155,7 +200,21 @@
           <input id="mFat" class="admin-input" type="number" min="0" step="0.1" placeholder="지방(g)">
           <input id="mKcal" class="admin-input" type="number" min="0" step="1" placeholder="열량(kcal)">
         </div>
+        <input id="mAllergens" class="admin-input" type="text" placeholder="알레르기 번호 (선택, 예: 1,2,5,6)" maxlength="60">
         <button id="mSubmit" class="submit-btn full">메뉴 등록하기</button>
+      </div>
+
+      <!-- 급식 CSV 일괄 등록 (#7) -->
+      <div class="admin-box">
+        <h3>📄 급식 CSV 일괄 등록</h3>
+        <p class="allergy-note">
+          엑셀에서 "CSV" 형식으로 저장한 파일. 한 줄에 메뉴 하나:<br>
+          <code>날짜,메뉴명,탄수화물,단백질,지방,열량,알레르기</code><br>
+          예) <code>2026-11-23,돈가스,120,28,22,820,1.2.5.6.10</code> (알레르기는 점으로 구분, 비워도 됨)
+        </p>
+        <input id="csvFile" class="admin-input" type="file" accept=".csv,text/csv">
+        <button id="csvSubmit" class="submit-btn full">CSV 등록하기</button>
+        <p id="csvResult" class="allergy-note"></p>
       </div>
 
       <div class="admin-box">
