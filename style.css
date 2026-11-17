@@ -560,3 +560,48 @@ body {
   font-size: 13px;
   cursor: pointer;
 }
+
+/* 메뉴 검색 (#4) */
+.search-bar {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.search-bar input {
+  flex: 1;
+  padding: 7px 8px;
+  border: 1px solid #a8d5bd;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+.search-results {
+  list-style: none;
+  padding: 8px;
+  margin: 0 0 12px;
+  background: #f4fbf7;
+  border: 1px solid #a8d5bd;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.search-results li {
+  padding: 3px 0;
+}
+
+.search-hit {
+  border: none;
+  background: none;
+  color: #2e7d52;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+  padding: 0;
+}
+
+/* 검색으로 찾아간 메뉴 카드 강조 */
+.menu-card.highlight {
+  border: 2px solid #ffb800;
+  background: #fffaf0;
+}

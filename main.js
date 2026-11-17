@@ -19,6 +19,7 @@ const ERROR_TEXT = "데이터를 불러오지 못했어요. 인터넷 연결을 
 let currentDate = null; // 지금 보고 있는 날짜 (예: "2026-10-30")
 let dayMenus = [];      // 그날의 메뉴 목록 (diet_logs)
 let dayReviews = [];    // 그날의 후기 목록 (reviews)
+let highlightMenu = null; // 검색으로 찾아간 메뉴 이름 (그 카드를 강조) (#4)
 let mealDates = [];     // 급식이 등록된 모든 날짜 (오래된 순) 예: ["2026-10-26", ...]
 let dayStats = {};      // 그날 메뉴별 평균 (menu_date_stats) 예: { "제육볶음": { avg: 4.5, count: 2 } }
 let menuStats = [];     // 전체 메뉴별 평균 (menu_stats) 예: [{ name, avg, count }, ...]
@@ -51,6 +52,9 @@ const dateText = document.getElementById("dateText");
 const menuList = document.getElementById("menuList");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
+const searchInput = document.getElementById("searchInput");
+const searchBtn = document.getElementById("searchBtn");
+const searchResults = document.getElementById("searchResults");
 
 const topList = document.getElementById("topList");
 const bottomList = document.getElementById("bottomList");
@@ -152,6 +156,20 @@ async function fetchLatestDate() {
 async function fetchMealDates() {
   const data = check(await db.from("diet_logs").select("date").order("date"));
   return [...new Set(data.map(row => row.date))];
+}
+
+// 메뉴 이름에 검색어가 들어간 급식 찾기 (최근 날짜부터 20개) (#4)
+// ilike = 대소문자 구분 없이 "포함" 검색. %, _ 는 검색 기호라서 미리 지워 둠
+async function fetchSearch(word) {
+  const clean = word.replace(/[%_*,()]/g, "");
+  if (clean === "") return []; // 기호만 입력하면 전체가 검색되지 않게
+  return check(
+    await db.from("diet_logs")
+      .select("date, menu_name")
+      .ilike("menu_name", `%${clean}%`)
+      .order("date", { ascending: false })
+      .limit(20)
+  );
 }
 
 // 하루치 메뉴 + 후기 + 메뉴별 평균을 한꺼번에(동시에) 가져오기
@@ -399,7 +417,7 @@ function render() {
     }
 
     html += `
-      <div class="menu-card">
+      <div class="menu-card ${name === highlightMenu ? "highlight" : ""}">
         <div class="menu-head">
           <span class="menu-name">${safeName}</span>
           <span class="menu-avg">★ ${stat.avg.toFixed(1)} (${stat.count}명)</span>
@@ -422,13 +440,71 @@ function render() {
     `;
   }
   menuList.innerHTML = html;
+
+  // 검색으로 찾아온 메뉴가 있으면 그 카드가 보이도록 스크롤
+  const target = menuList.querySelector(".menu-card.highlight");
+  if (target) target.scrollIntoView({ behavior: "smooth", block: "center" });
+  highlightMenu = null; // 한 번만 강조 (후기 등록 등으로 다시 그릴 때는 강조 없음)
 }
+
+// ===== 6-1. 메뉴 검색 결과 그리기 (#4) =====
+function renderSearch(word, results) {
+  searchResults.classList.remove("hidden");
+  if (results.length === 0) {
+    searchResults.innerHTML = `<li>"${escapeHTML(word)}"이(가) 들어간 메뉴가 없어요.</li>`;
+    return;
+  }
+  let html = "";
+  for (const r of results) {
+    html += `
+      <li>
+        <button class="search-hit" data-date="${r.date}" data-menu="${escapeHTML(r.menu_name)}">
+          ${formatDate(r.date)} · ${escapeHTML(r.menu_name)}
+        </button>
+      </li>
+    `;
+  }
+  searchResults.innerHTML = html;
+}
+
+async function search() {
+  const word = searchInput.value.trim();
+  if (word === "") {
+    searchResults.classList.add("hidden");
+    return;
+  }
+  searchResults.classList.remove("hidden");
+  searchResults.innerHTML = `<li>${LOADING_TEXT}</li>`;
+  try {
+    renderSearch(word, await fetchSearch(word));
+  } catch (err) {
+    console.error("메뉴 검색 실패:", err);
+    searchResults.innerHTML = `<li>${ERROR_TEXT}</li>`;
+  }
+}
+
+searchBtn.addEventListener("click", search);
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") search();
+});
+
+// 검색 결과를 누르면 그 날짜로 이동하고, 그 메뉴 카드를 강조
+searchResults.addEventListener("click", (e) => {
+  const hit = e.target.closest(".search-hit");
+  if (!hit) return;
+  currentDate = hit.dataset.date;
+  highlightMenu = hit.dataset.menu;
+  selectedScore = {};
+  searchResults.classList.add("hidden");
+  loadMeal();
+});
 
 // ===== 7. 날짜 이동 =====
 function moveDate(diff) {
   if (!currentDate) return; // 아직 첫 날짜를 못 정했으면 무시
   currentDate = shiftDate(currentDate, diff);
   selectedScore = {};
+  highlightMenu = null; // 다른 날로 가면 검색 강조는 끄기
   loadMeal();
 }
 
