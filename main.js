@@ -472,7 +472,7 @@ function rankItem(rank, s) {
     <li>
       <span class="rank-num">${rank}</span>
       ${escapeHTML(s.name)}
-      <span class="rank-score">★${s.avg.toFixed(1)}</span>
+      <span class="rank-score">★${s.avg.toFixed(1)} <span class="rank-count">(${s.count}명)</span></span>
     </li>
   `;
 }
